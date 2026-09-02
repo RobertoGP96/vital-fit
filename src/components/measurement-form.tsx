@@ -41,11 +41,12 @@ export function MeasurementForm({
       <input type="hidden" name="input_units" value={units} />
 
       <div className="flex items-center justify-between gap-3">
+        {/* Sin flex-1: el input de fecha estira su wrapper, así que crecía
+            hasta ocupar todo el hueco sobrante de la fila. */}
         <TextField
           name="measured_at"
           type="date"
           isRequired
-          className="flex-1"
           defaultValue={today}
         >
           <Label>Fecha</Label>
