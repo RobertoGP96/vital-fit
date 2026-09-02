@@ -5,7 +5,7 @@
    - NUNCA cachea peticiones a Supabase (REST/auth/storage): riesgo de fuga
      de sesión y de datos entre usuarios. */
 
-const VERSION = "vitalfit-v1";
+const VERSION = "vitalfit-v2";
 const OFFLINE_URL = "/offline";
 const PRECACHE = [OFFLINE_URL, "/icons/icon.svg"];
 
