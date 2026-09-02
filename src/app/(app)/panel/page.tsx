@@ -1,7 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Button, Chip, SearchField } from "@heroui/react";
-import { CalendarDays, Check, CreditCard, ListFilter, Users } from "lucide-react";
+import {
+  BellRing,
+  CalendarDays,
+  Check,
+  ChevronRight,
+  CreditCard,
+  ListFilter,
+  Users,
+} from "lucide-react";
 import { requireSession } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatLongDate, formatTime, todayISO } from "@/lib/format";
@@ -28,8 +36,12 @@ export default async function PanelPage() {
   const session = await requireSession();
   const supabase = await createClient();
 
-  const [{ data: profile }, { data: sessionsData }, { data: clientsData }] =
-    await Promise.all([
+  const [
+    { data: profile },
+    { data: sessionsData },
+    { data: clientsData },
+    { count: alertCount },
+  ] = await Promise.all([
       supabase
         .from("profiles")
         .select("full_name")
@@ -49,6 +61,10 @@ export default async function PanelPage() {
         .eq("is_active", true)
         .order("full_name")
         .limit(5),
+      supabase
+        .from("v_billing_alerts")
+        .select("client_id", { count: "exact", head: true })
+        .in("alert_level", ["por_vencer", "vencido"]),
     ]);
 
   const firstName = (profile?.full_name ?? "").split(" ")[0] || "Entrenador";
@@ -69,6 +85,22 @@ export default async function PanelPage() {
           </p>
         </div>
       </section>
+
+      {/* Recordatorio de cobros por vencer o vencidos */}
+      {(alertCount ?? 0) > 0 && (
+        <Link
+          href="/notificaciones"
+          className="flex items-center gap-2.5 rounded-(--radius-card) border border-amber-200 bg-amber-50 px-3.5 py-3"
+        >
+          <BellRing size={18} className="shrink-0 text-amber-500" />
+          <p className="flex-1 text-[13px] font-semibold text-ink">
+            {alertCount === 1
+              ? "1 cliente con pago por vencer o vencido"
+              : `${alertCount} clientes con pagos por vencer o vencidos`}
+          </p>
+          <ChevronRight size={16} className="shrink-0 text-muted" />
+        </Link>
+      )}
 
       {/* Buscador (lleva a clientes con el término) */}
       <form action="/clientes" method="get" role="search" className="flex gap-2.5">

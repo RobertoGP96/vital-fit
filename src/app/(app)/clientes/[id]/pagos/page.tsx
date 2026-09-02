@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { Button, Card, Chip, buttonVariants } from "@heroui/react";
-import { Plus } from "lucide-react";
+import { PauseCircle, Plus, Settings2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { markPaymentPaidAction } from "@/actions/payments";
 import { getSessionInfo } from "@/lib/auth";
 import { PaymentStatusChip } from "@/components/payment-status-chip";
 import { MembershipForm } from "@/components/membership-form";
-import { formatCup, formatShortDate } from "@/lib/format";
+import { BillingSettingsForm } from "@/components/billing-settings-form";
+import { formatCup, formatShortDate, todayISO } from "@/lib/format";
 
 const CONCEPT_LABEL: Record<string, string> = {
   mensualidad: "Mensualidad",
@@ -14,38 +15,114 @@ const CONCEPT_LABEL: Record<string, string> = {
   otro: "Otro",
 };
 
+function BillingStateChip({
+  enabled,
+  endsOn,
+  reminderDays,
+}: {
+  enabled: boolean;
+  endsOn: string | null;
+  reminderDays: number;
+}) {
+  if (!enabled) {
+    return (
+      <Chip color="warning" variant="soft" size="sm" className="gap-1">
+        <PauseCircle size={13} /> Cobro pausado
+      </Chip>
+    );
+  }
+  if (!endsOn) return null;
+  const today = todayISO();
+  const daysLeft = Math.round(
+    (new Date(`${endsOn}T00:00:00`).getTime() -
+      new Date(`${today}T00:00:00`).getTime()) /
+      86_400_000,
+  );
+  if (daysLeft < 0) {
+    return (
+      <Chip color="danger" variant="soft" size="sm">
+        Venció hace {-daysLeft} {daysLeft === -1 ? "día" : "días"}
+      </Chip>
+    );
+  }
+  if (daysLeft <= reminderDays) {
+    return (
+      <Chip color="warning" variant="soft" size="sm">
+        Vence en {daysLeft} {daysLeft === 1 ? "día" : "días"}
+      </Chip>
+    );
+  }
+  return (
+    <Chip color="success" variant="soft" size="sm">
+      Al día
+    </Chip>
+  );
+}
+
 export default async function PagosClientePage(props: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ configurar?: string }>;
 }) {
   const { id } = await props.params;
+  const { configurar } = await props.searchParams;
   const session = await getSessionInfo();
   const supabase = await createClient();
 
-  const [{ data: memberships }, { data: payments }, { data: plans }] =
-    await Promise.all([
-      supabase
-        .from("client_memberships")
-        .select("id, starts_on, ends_on, price_agreed, status, membership_plans(name)")
-        .eq("client_id", id)
-        .order("ends_on", { ascending: false })
-        .limit(10),
-      supabase
-        .from("payments")
-        .select("id, concept, amount, method, status, paid_on, due_on, period_start, period_end")
-        .eq("client_id", id)
-        .order("created_at", { ascending: false })
-        .limit(30),
-      supabase
-        .from("membership_plans")
-        .select("id, name, price, duration_days")
-        .eq("is_active", true)
-        .order("name"),
-    ]);
+  const [
+    { data: clientRow },
+    { data: memberships },
+    { data: payments },
+    { data: plans },
+  ] = await Promise.all([
+    supabase
+      .from("clients")
+      .select(
+        "billing_enabled, billing_plan_id, billing_period_days, billing_reminder_days",
+      )
+      .eq("id", id)
+      .single(),
+    supabase
+      .from("client_memberships")
+      .select("id, starts_on, ends_on, price_agreed, status, membership_plans(name)")
+      .eq("client_id", id)
+      .order("ends_on", { ascending: false })
+      .limit(10),
+    supabase
+      .from("payments")
+      .select(
+        "id, concept, amount, method, status, paid_on, due_on, period_start, period_end",
+      )
+      .eq("client_id", id)
+      .order("created_at", { ascending: false })
+      .limit(30),
+    supabase
+      .from("membership_plans")
+      .select("id, name, price, duration_days")
+      .eq("is_active", true)
+      .order("name"),
+  ]);
 
   const current = memberships?.[0];
+  const billing = {
+    billing_enabled: clientRow?.billing_enabled ?? true,
+    billing_plan_id: clientRow?.billing_plan_id ?? null,
+    billing_period_days: clientRow?.billing_period_days ?? null,
+    billing_reminder_days: clientRow?.billing_reminder_days ?? 5,
+  };
+  const justCreated = configurar === "1";
 
   return (
     <div className="flex flex-col gap-4">
+      {justCreated && (
+        <div className="rounded-(--radius-card) border border-brand/30 bg-brand/10 p-3.5 text-sm">
+          <p className="font-bold text-brand-600">Cliente registrado ✓</p>
+          <p className="mt-0.5 text-muted">
+            Configura ahora su tipo de pago para que el sistema avise cuando
+            toque la mensualidad.
+          </p>
+        </div>
+      )}
+
       <Link
         href={`/pagos/nuevo?cliente=${id}`}
         className={buttonVariants({
@@ -60,6 +137,30 @@ export default async function PagosClientePage(props: {
       </Link>
 
       <Card className="rounded-(--radius-card) border-line bg-white p-4">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="font-bold">Configuración de cobro</h2>
+          <BillingStateChip
+            enabled={billing.billing_enabled}
+            endsOn={current?.ends_on ?? null}
+            reminderDays={billing.billing_reminder_days}
+          />
+        </div>
+        <details className="mt-2" open={justCreated || !billing.billing_enabled}>
+          <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-semibold text-brand-600">
+            <Settings2 size={15} />
+            Tipo de pago, período y avisos
+          </summary>
+          <div className="mt-3">
+            <BillingSettingsForm
+              clientId={id}
+              plans={plans ?? []}
+              settings={billing}
+            />
+          </div>
+        </details>
+      </Card>
+
+      <Card className="rounded-(--radius-card) border-line bg-white p-4">
         <h2 className="mb-2 font-bold">Membresía</h2>
         {current ? (
           <p className="text-sm">
@@ -72,7 +173,10 @@ export default async function PagosClientePage(props: {
             </Chip>
           </p>
         ) : (
-          <p className="text-sm text-muted">Sin membresía registrada.</p>
+          <p className="text-sm text-muted">
+            Sin membresía registrada. Se creará sola al registrar el primer pago
+            de mensualidad, o créala aquí manualmente.
+          </p>
         )}
         <details className="mt-3">
           <summary className="cursor-pointer text-sm font-semibold text-brand-600">

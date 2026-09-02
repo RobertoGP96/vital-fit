@@ -32,7 +32,8 @@ export async function createClientAction(
   }
 
   revalidatePath("/clientes");
-  redirect(`/clientes/${data.id}`);
+  // Siguiente paso del alta: configurar el tipo de pago del cliente.
+  redirect(`/clientes/${data.id}/pagos?configurar=1`);
 }
 
 export async function updateClientAction(

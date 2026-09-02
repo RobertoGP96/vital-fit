@@ -11,11 +11,18 @@ export default async function AppLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   const session = await requireSession();
   const supabase = await createClient();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name")
-    .eq("id", session.userId)
-    .single();
+  const [{ data: profile }, { count: alertCount }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", session.userId)
+      .single(),
+    // Avisos de cobro: clientes por vencer (≤ N días) o vencidos.
+    supabase
+      .from("v_billing_alerts")
+      .select("client_id", { count: "exact", head: true })
+      .in("alert_level", ["por_vencer", "vencido"]),
+  ]);
 
   return (
     <div className="mx-auto min-h-dvh max-w-md bg-cream">
@@ -25,11 +32,20 @@ export default async function AppLayout({
         </Link>
         <div className="flex items-center gap-2.5">
           <Link
-            href="/mas"
-            aria-label="Notificaciones"
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-line bg-white text-ink"
+            href="/notificaciones"
+            aria-label={
+              alertCount
+                ? `Notificaciones: ${alertCount} avisos de cobro`
+                : "Notificaciones"
+            }
+            className="relative flex h-10 w-10 items-center justify-center rounded-full border border-line bg-white text-ink"
           >
             <Bell size={18} />
+            {(alertCount ?? 0) > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-extrabold leading-none text-white">
+                {alertCount! > 9 ? "9+" : alertCount}
+              </span>
+            )}
           </Link>
           <UserMenu name={profile?.full_name ?? "Usuario"} role={session.role} />
         </div>

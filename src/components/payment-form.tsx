@@ -2,6 +2,7 @@
 
 import {
   Button,
+  Checkbox,
   Input,
   Label,
   ListBox,
@@ -24,6 +25,9 @@ export function PaymentForm({
 }) {
   const [state, formAction, pending] = useActionState(createPaymentAction, null);
   const [status, setStatus] = useState<"pagado" | "pendiente">("pagado");
+  const [concept, setConcept] = useState<"mensualidad" | "sesion_suelta" | "otro">(
+    "mensualidad",
+  );
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -52,7 +56,14 @@ export function PaymentForm({
       </Select>
 
       <div className="grid grid-cols-2 gap-3">
-        <Select name="concept" fullWidth defaultSelectedKey="mensualidad">
+        <Select
+          name="concept"
+          fullWidth
+          selectedKey={concept}
+          onSelectionChange={(k) =>
+            setConcept(k as "mensualidad" | "sesion_suelta" | "otro")
+          }
+        >
           <Label>Concepto *</Label>
           <Select.Trigger>
             <Select.Value />
@@ -158,6 +169,23 @@ export function PaymentForm({
           <Label>Fecha de vencimiento</Label>
           <Input />
         </TextField>
+      )}
+
+      {concept === "mensualidad" && status === "pagado" && (
+        <Checkbox name="renew_membership" defaultSelected className="w-full">
+          <Checkbox.Content className="flex w-full items-start gap-2">
+            <Checkbox.Control className="mt-0.5">
+              <Checkbox.Indicator />
+            </Checkbox.Control>
+            <div>
+              <Label className="font-semibold">Renovar membresía</Label>
+              <p className="text-xs text-muted">
+                Crea el nuevo período según el tipo de pago del cliente (o las
+                fechas de abajo si las indicas).
+              </p>
+            </div>
+          </Checkbox.Content>
+        </Checkbox>
       )}
 
       <div className="grid grid-cols-2 gap-3">
