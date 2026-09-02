@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { requireSession } from "@/lib/auth";
-import { BarbellMark } from "@/components/logo";
+import { CurvedBarbellMark } from "@/components/logo";
 import { ChangePasswordForm } from "./change-password-form";
 
 export const metadata: Metadata = { title: "Cambiar contraseña" };
@@ -18,7 +18,7 @@ export default async function ChangePasswordPage() {
     >
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-3">
-          <BarbellMark bar="#F4FBF6" className="h-16 w-28" />
+          <CurvedBarbellMark bar="#F4FBF6" className="h-14 w-[132px]" />
           <p className="text-3xl font-extrabold tracking-tight text-cream">
             Vital<span className="text-brand">Fit</span>
           </p>

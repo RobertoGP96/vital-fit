@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Card, CardContent } from "@heroui/react";
-import { BarbellMark } from "@/components/logo";
+import { CurvedBarbellMark } from "@/components/logo";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = { title: "Iniciar sesión" };
@@ -30,7 +30,7 @@ export default function LoginPage() {
                 "radial-gradient(420px 280px at 70% 15%, var(--color-ink-2), var(--color-deep))",
             }}
           >
-            <BarbellMark bar="#F4FBF6" className="h-16 w-28" />
+            <CurvedBarbellMark bar="#F4FBF6" className="h-14 w-[132px]" />
             <p className="font-display text-3xl font-extrabold tracking-[-0.5px] text-cream">
               Vital<span className="text-brand">Fit</span>
             </p>
