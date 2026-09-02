@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Chip, SearchField, buttonVariants } from "@heroui/react";
-import { Plus } from "lucide-react";
+import { Chip, SearchField } from "@heroui/react";
 import { requireSession } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Avatar } from "@/components/avatar";
+import { Fab } from "@/components/fab";
 
 export const metadata: Metadata = { title: "Clientes" };
 
@@ -87,18 +87,7 @@ export default async function ClientesPage(props: {
       )}
 
       {session.role === "admin" && (
-        <Link
-          href="/clientes/nuevo"
-          aria-label="Registrar cliente"
-          className={buttonVariants({
-            variant: "primary",
-            isIconOnly: true,
-            className:
-              "fixed bottom-24 right-5 z-40 h-14 w-14 rounded-full shadow-lg",
-          })}
-        >
-          <Plus size={26} strokeWidth={2.5} />
-        </Link>
+        <Fab href="/clientes/nuevo" label="Registrar cliente" />
       )}
     </div>
   );

@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Button, Chip, buttonVariants } from "@heroui/react";
-import { ChevronLeft, ChevronRight, Plus, RefreshCw, Repeat } from "lucide-react";
+import { ChevronLeft, ChevronRight, RefreshCw, Repeat } from "lucide-react";
 import { addDays, format, startOfWeek } from "date-fns";
 import { es } from "date-fns/locale";
 import { requireSession } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveTrainers } from "@/lib/queries";
+import { Fab } from "@/components/fab";
 import { generateWeekAction } from "@/actions/sessions";
 import { formatTime, todayISO } from "@/lib/format";
 
@@ -264,19 +265,10 @@ export default async function AgendaPage(props: {
         </ul>
       )}
 
-      <Link
+      <Fab
         href={`/agenda/nueva${params.entrenador ? `?entrenador=${params.entrenador}` : ""}`}
-        aria-label="Nueva sesión"
-        className={buttonVariants({
-          variant: "primary",
-          isIconOnly: true,
-          size: "lg",
-          className:
-            "fixed bottom-24 right-5 z-40 h-14 w-14 rounded-full shadow-lg",
-        })}
-      >
-        <Plus size={26} strokeWidth={2.5} />
-      </Link>
+        label="Nueva sesión"
+      />
     </div>
   );
 }

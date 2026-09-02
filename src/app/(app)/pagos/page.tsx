@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Button, buttonVariants } from "@heroui/react";
-import { Plus } from "lucide-react";
+import { Button } from "@heroui/react";
 import { requireSession } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { markPaymentPaidAction } from "@/actions/payments";
+import { Fab } from "@/components/fab";
 import { PaymentStatusChip } from "@/components/payment-status-chip";
 import { formatCup, formatShortDate } from "@/lib/format";
 
@@ -122,19 +122,7 @@ export default async function PagosPage(props: {
         </ul>
       )}
 
-      <Link
-        href="/pagos/nuevo"
-        aria-label="Registrar pago"
-        className={buttonVariants({
-          variant: "primary",
-          isIconOnly: true,
-          size: "lg",
-          className:
-            "fixed bottom-24 right-5 z-40 h-14 w-14 rounded-full shadow-lg",
-        })}
-      >
-        <Plus size={26} strokeWidth={2.5} />
-      </Link>
+      <Fab href="/pagos/nuevo" label="Registrar pago" />
     </div>
   );
 }
