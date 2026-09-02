@@ -1,7 +1,9 @@
-const STYLES: Record<string, string> = {
-  pagado: "bg-brand/15 text-brand-600",
-  pendiente: "bg-amber-100 text-amber-700",
-  vencido: "bg-red-100 text-red-700",
+import { Chip } from "@heroui/react";
+
+const COLORS: Record<string, "success" | "warning" | "danger"> = {
+  pagado: "success",
+  pendiente: "warning",
+  vencido: "danger",
 };
 
 const LABELS: Record<string, string> = {
@@ -12,10 +14,8 @@ const LABELS: Record<string, string> = {
 
 export function PaymentStatusChip({ status }: { status: string }) {
   return (
-    <span
-      className={`inline-block rounded-full px-2.5 py-1 text-xs font-bold ${STYLES[status] ?? "bg-ink/10 text-muted"}`}
-    >
+    <Chip color={COLORS[status] ?? "default"} variant="soft" size="sm">
       {LABELS[status] ?? status}
-    </span>
+    </Chip>
   );
 }

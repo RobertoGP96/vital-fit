@@ -1,5 +1,13 @@
 "use client";
 
+import {
+  Button,
+  Input,
+  Label,
+  ListBox,
+  Select,
+  TextField,
+} from "@heroui/react";
 import { useActionState } from "react";
 import { Copy } from "lucide-react";
 import {
@@ -22,14 +30,17 @@ function TempPasswordBanner({
         <code className="flex-1 rounded-lg bg-white px-3 py-2 text-lg font-extrabold tracking-wider">
           {state.tempPassword}
         </code>
-        <button
+        <Button
           type="button"
+          isIconOnly
+          size="sm"
+          variant="outline"
           aria-label="Copiar contraseña"
-          onClick={() => navigator.clipboard?.writeText(state.tempPassword)}
-          className="rounded-full border border-brand/40 p-2.5 text-brand-600 hover:bg-brand/10"
+          onPress={() => navigator.clipboard?.writeText(state.tempPassword)}
+          className="rounded-full border-brand/40 text-brand-600 hover:bg-brand/10"
         >
           <Copy size={16} />
-        </button>
+        </Button>
       </div>
       <p className="mt-2 text-xs text-muted">
         Cópiala AHORA y entrégala en persona: no volverá a mostrarse. Al primer
@@ -47,35 +58,34 @@ export function TrainerCreateForm() {
       {state && "ok" in state && <TempPasswordBanner state={state} />}
 
       <form action={formAction} className="flex flex-col gap-3">
-        <label className="flex flex-col gap-1.5">
-          <span className="text-sm font-medium">Nombre completo *</span>
-          <input
-            name="full_name"
-            required
-            className="h-11 rounded-xl border border-line bg-white px-3 outline-none focus:border-brand"
-          />
-        </label>
+        <TextField name="full_name" isRequired fullWidth>
+          <Label>Nombre completo *</Label>
+          <Input />
+        </TextField>
         <div className="grid grid-cols-2 gap-3">
-          <label className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">Correo *</span>
-            <input
-              name="email"
-              type="email"
-              required
-              className="h-11 rounded-xl border border-line bg-white px-3 outline-none focus:border-brand"
-            />
-          </label>
-          <label className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">Rol *</span>
-            <select
-              name="role"
-              defaultValue="trainer"
-              className="h-11 rounded-xl border border-line bg-white px-3 outline-none focus:border-brand"
-            >
-              <option value="trainer">Entrenador</option>
-              <option value="coordinator">Coordinador</option>
-            </select>
-          </label>
+          <TextField name="email" type="email" isRequired fullWidth>
+            <Label>Correo *</Label>
+            <Input autoComplete="email" inputMode="email" />
+          </TextField>
+          <Select name="role" fullWidth defaultSelectedKey="trainer">
+            <Label>Rol *</Label>
+            <Select.Trigger>
+              <Select.Value />
+              <Select.Indicator />
+            </Select.Trigger>
+            <Select.Popover>
+              <ListBox>
+                <ListBox.Item id="trainer" textValue="Entrenador">
+                  Entrenador
+                  <ListBox.ItemIndicator />
+                </ListBox.Item>
+                <ListBox.Item id="coordinator" textValue="Coordinador">
+                  Coordinador
+                  <ListBox.ItemIndicator />
+                </ListBox.Item>
+              </ListBox>
+            </Select.Popover>
+          </Select>
         </div>
 
         {state && "error" in state && (
@@ -84,13 +94,15 @@ export function TrainerCreateForm() {
           </p>
         )}
 
-        <button
+        <Button
           type="submit"
-          disabled={pending}
-          className="h-11 rounded-full bg-brand font-semibold text-ink hover:bg-brand-600 disabled:opacity-60"
+          size="lg"
+          fullWidth
+          isPending={pending}
+          className="rounded-full font-semibold"
         >
           {pending ? "Creando…" : "Crear cuenta"}
-        </button>
+        </Button>
       </form>
     </div>
   );
@@ -114,13 +126,15 @@ export function TrainerResetPassword({
       <form action={formAction}>
         <input type="hidden" name="id" value={trainerId} />
         <input type="hidden" name="email" value={email} />
-        <button
+        <Button
           type="submit"
-          disabled={pending}
-          className="rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-muted hover:border-ink/40 disabled:opacity-60"
+          size="sm"
+          variant="outline"
+          isPending={pending}
+          className="rounded-full text-xs font-semibold text-muted"
         >
           {pending ? "…" : "Restablecer contraseña"}
-        </button>
+        </Button>
       </form>
       {state && "error" in state && (
         <p role="alert" className="text-xs font-medium text-red-600">
