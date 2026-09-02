@@ -1,0 +1,101 @@
+@import "tailwindcss";
+@import "@heroui/styles";
+
+/* Tokens del diseño VitalFit v2 (Claude Design):
+   fondo profundo #0B1F14 (nav/hero), tinta #0D1F14 (texto), acento #17C964
+   (hover #12A150), menta #86EFAC, crema #F4FBF6, bordes #DFEFE5, texto
+   secundario #6B8273, verde suave #D7F8E4. La app es clara con acentos verdes. */
+@theme {
+  --color-brand: #17C964;
+  --color-brand-600: #12A150;
+  --color-ink: #0d1f14;
+  --color-deep: #0b1f14;
+  --color-ink-2: #1c4230;
+  --color-mint: #86efac;
+  --color-cream: #f4fbf6;
+  --color-line: #dfefe5;
+  --color-muted: #6b8273;
+  --color-soft: #d7f8e4;
+
+  --radius-card: 20px;
+
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: var(--font-unbounded), var(--font-jakarta), ui-sans-serif, sans-serif;
+}
+
+/* Tokens de tema de HeroUI v3 → verde VitalFit (el accent por defecto es azul).
+   --focus y --accent-soft derivan de --accent, así que heredan el verde. */
+:root,
+.light,
+[data-theme="light"] {
+  --accent: #17c964;
+  --accent-hover: #12a150;
+  --accent-foreground: #0b1f14;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* En @layer base para que las utilidades (text-white/55 del nav, etc.)
+   puedan sobreescribir el color de enlace por defecto. */
+@layer base {
+  a {
+    color: var(--color-brand);
+    text-decoration: none;
+  }
+  a:hover {
+    color: var(--color-brand-600);
+  }
+}
+
+/* Ocultar scrollbars en franjas horizontales (agenda, tabs) como en el diseño */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Animación de la cápsula activa del menú inferior (del diseño original) */
+@keyframes navPop {
+  0% {
+    transform: scale(0.8);
+  }
+  55% {
+    transform: scale(1.07);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Entrada de secciones (del diseño original) */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

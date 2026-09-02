@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#0B1F14"/>
+  <g transform="translate(0 -20)">
+    <path d="M118 250 Q256 178 394 250" stroke="#F4FBF6" stroke-width="26" stroke-linecap="round" fill="none"/>
+    <g transform="rotate(-14 118 245)">
+      <rect x="103" y="165" width="30" height="160" rx="15" fill="#12A150"/>
+      <rect x="69" y="180" width="28" height="130" rx="14" fill="#17C964"/>
+      <rect x="37" y="197" width="26" height="96" rx="13" fill="#12A150"/>
+      <rect x="12" y="223" width="20" height="44" rx="10" fill="#86EFAC"/>
+    </g>
+    <g transform="rotate(14 394 245)">
+      <rect x="379" y="165" width="30" height="160" rx="15" fill="#12A150"/>
+      <rect x="415" y="180" width="28" height="130" rx="14" fill="#17C964"/>
+      <rect x="449" y="197" width="26" height="96" rx="13" fill="#12A150"/>
+      <rect x="480" y="223" width="20" height="44" rx="10" fill="#86EFAC"/>
+    </g>
+  </g>
+  <text x="256" y="428" text-anchor="middle" font-family="Arial, sans-serif" font-weight="800" font-size="76" fill="#F4FBF6">Vital<tspan fill="#17C964">Fit</tspan></text>
+</svg>
