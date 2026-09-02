@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Button, Chip, ListBox, Select } from "@heroui/react";
+import { Button, Chip, Label, ListBox, NumberField, Select } from "@heroui/react";
 import { UserMinus } from "lucide-react";
+import { getSessionInfo } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getAssignedClients } from "@/lib/queries";
 import {
   addParticipantAction,
   removeParticipantAction,
   setSessionStatusAction,
+  updateSessionDurationAction,
 } from "@/actions/sessions";
 import { AttendanceToggle } from "@/components/attendance-toggle";
 import { Avatar } from "@/components/avatar";
@@ -19,6 +21,8 @@ export default async function SesionPage(props: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await props.params;
+  const auth = await getSessionInfo();
+  const canEditDuration = auth != null && auth.role !== "trainer";
   const supabase = await createClient();
 
   const { data: s } = await supabase
@@ -81,6 +85,37 @@ export default async function SesionPage(props: {
           <p className="mt-1 text-sm font-bold uppercase tracking-wide text-cream/80">
             {s.status}
           </p>
+        )}
+
+        {canEditDuration && (
+          <form
+            action={updateSessionDurationAction}
+            className="mt-3 flex items-end gap-2"
+          >
+            <input type="hidden" name="id" value={s.id} />
+            <NumberField
+              name="duration_min"
+              minValue={10}
+              maxValue={360}
+              step={5}
+              defaultValue={s.duration_min}
+              formatOptions={{ maximumFractionDigits: 0, useGrouping: false }}
+              className="w-28"
+            >
+              <Label className="text-cream/70">Duración (min)</Label>
+              <NumberField.Group>
+                <NumberField.Input inputMode="numeric" />
+              </NumberField.Group>
+            </NumberField>
+            <Button
+              type="submit"
+              variant="secondary"
+              size="sm"
+              className="rounded-full font-semibold"
+            >
+              Guardar
+            </Button>
+          </form>
         )}
       </header>
 

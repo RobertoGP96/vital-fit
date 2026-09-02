@@ -57,6 +57,20 @@ body {
   }
 }
 
+/* HeroUI dimensiona el grupo del NumberField con grid-template-columns
+   "40px 1fr 40px" (columnas reservadas a los botones +/−). Sin botones, el
+   input caía en la columna de 40px y solo se veían ~2 caracteres. Ajustar la
+   plantilla según los botones realmente presentes. */
+.number-field__group:not(:has([slot="increment"])):not(:has([slot="decrement"])) {
+  grid-template-columns: minmax(0, 1fr);
+}
+.number-field__group:has([slot="decrement"]):not(:has([slot="increment"])) {
+  grid-template-columns: 40px minmax(0, 1fr);
+}
+.number-field__group:has([slot="increment"]):not(:has([slot="decrement"])) {
+  grid-template-columns: minmax(0, 1fr) 40px;
+}
+
 /* Ocultar scrollbars en franjas horizontales (agenda, tabs) como en el diseño */
 .no-scrollbar::-webkit-scrollbar {
   display: none;

@@ -53,7 +53,12 @@ export default async function NuevaSesionPage(props: {
         </div>
       )}
 
-      <SessionForm trainerId={trainerId} types={types ?? []} clients={clients} />
+      <SessionForm
+        trainerId={trainerId}
+        types={types ?? []}
+        clients={clients}
+        canEditDuration={canManageAll}
+      />
     </div>
   );
 }

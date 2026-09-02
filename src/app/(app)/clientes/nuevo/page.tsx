@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import { requireAdmin } from "@/lib/auth";
+import { requireSession } from "@/lib/auth";
 import { createClientAction } from "@/actions/clients";
 import { ClientForm } from "@/components/client-form";
 
 export const metadata: Metadata = { title: "Nuevo cliente" };
 
 export default async function NuevoClientePage() {
-  await requireAdmin();
+  await requireSession();
 
   return (
     <div className="flex flex-col gap-4">

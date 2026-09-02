@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdmin, requireSession } from "@/lib/auth";
+import { requireSession } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { clientFormToObject, clientSchema } from "@/lib/validation/client";
 import type { FormState } from "@/actions/auth";
@@ -11,8 +11,9 @@ export async function createClientAction(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  // Solo el admin registra clientes (la RLS de INSERT es la segunda capa).
-  await requireAdmin();
+  // Cualquier staff activo registra clientes (la RLS de INSERT es la segunda
+  // capa); si no es admin, la BD lo auto-asigna como entrenador del cliente.
+  await requireSession();
 
   const parsed = clientSchema.safeParse(clientFormToObject(formData));
   if (!parsed.success) {

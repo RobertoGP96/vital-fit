@@ -20,7 +20,8 @@ const sessionSchema = z.object({
     .pipe(z.string().uuid().nullable()),
   session_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida"),
   start_time: z.string().regex(/^\d{2}:\d{2}/, "Hora inválida"),
-  duration_min: z.coerce.number().int().min(10).max(360),
+  // Solo coordinador/admin la envían; para entrenadores la determina el tipo.
+  duration_min: z.coerce.number().int().min(10).max(360).optional(),
   capacity: z
     .string()
     .trim()
@@ -44,9 +45,11 @@ export async function createSessionAction(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
   }
 
-  // Un entrenador solo crea sesiones propias (RLS lo refuerza).
+  // Un entrenador solo crea sesiones propias (RLS lo refuerza) y no elige la
+  // duración: la fija el tipo de sesión (trigger en BD como segunda capa).
   const trainerId =
     session.role === "trainer" ? session.userId : parsed.data.trainer_id;
+  if (session.role === "trainer") delete parsed.data.duration_min;
 
   const participantIds = formData
     .getAll("participants")
@@ -90,6 +93,23 @@ export async function setSessionStatusAction(formData: FormData): Promise<void> 
 
   const supabase = await createClient();
   await supabase.from("sessions").update({ status }).eq("id", id);
+  revalidateAgenda(id);
+}
+
+/** Cambiar la duración es exclusivo de coordinador/admin (trigger BD lo refuerza). */
+export async function updateSessionDurationAction(
+  formData: FormData,
+): Promise<void> {
+  const session = await requireSession();
+  if (session.role === "trainer") return;
+
+  const id = String(formData.get("id") ?? "");
+  const duration = Number(formData.get("duration_min"));
+  if (!id || !Number.isInteger(duration) || duration < 10 || duration > 360)
+    return;
+
+  const supabase = await createClient();
+  await supabase.from("sessions").update({ duration_min: duration }).eq("id", id);
   revalidateAgenda(id);
 }
 
@@ -175,7 +195,7 @@ const scheduleSchema = z.object({
     .pipe(z.string().uuid().nullable()),
   weekday: z.coerce.number().int().min(1).max(7),
   start_time: z.string().regex(/^\d{2}:\d{2}/, "Hora inválida"),
-  duration_min: z.coerce.number().int().min(10).max(360),
+  duration_min: z.coerce.number().int().min(10).max(360).optional(),
   capacity: z
     .string()
     .trim()
@@ -195,6 +215,7 @@ export async function createScheduleAction(
   }
   const trainerId =
     session.role === "trainer" ? session.userId : parsed.data.trainer_id;
+  if (session.role === "trainer") delete parsed.data.duration_min;
 
   const participantIds = formData.getAll("participants").map(String).filter(Boolean);
 

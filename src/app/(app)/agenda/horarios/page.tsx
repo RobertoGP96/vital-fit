@@ -43,7 +43,11 @@ export default async function HorariosPage(props: {
         )
         .order("weekday")
         .order("start_time"),
-      supabase.from("session_types").select("id, name").eq("is_active", true).order("name"),
+      supabase
+        .from("session_types")
+        .select("id, name, default_duration_min")
+        .eq("is_active", true)
+        .order("name"),
       canManageAll ? getActiveTrainers() : Promise.resolve([]),
       getAssignedClients(trainerId),
     ]);
@@ -83,7 +87,12 @@ export default async function HorariosPage(props: {
           Nuevo horario recurrente
         </summary>
         <div className="mt-4">
-          <ScheduleForm trainerId={trainerId} types={types ?? []} clients={clients} />
+          <ScheduleForm
+            trainerId={trainerId}
+            types={types ?? []}
+            clients={clients}
+            canEditDuration={canManageAll}
+          />
         </div>
       </details>
 
