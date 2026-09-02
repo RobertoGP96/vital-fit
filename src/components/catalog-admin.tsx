@@ -100,7 +100,7 @@ export function PlanForm({ plan }: { plan?: PlanRow }) {
         >
           <Label>Precio (CUP) *</Label>
           <NumberField.Group>
-            <NumberField.Input />
+            <NumberField.Input inputMode="decimal" />
           </NumberField.Group>
         </NumberField>
         <NumberField
@@ -113,7 +113,7 @@ export function PlanForm({ plan }: { plan?: PlanRow }) {
         >
           <Label>Duración (días) *</Label>
           <NumberField.Group>
-            <NumberField.Input />
+            <NumberField.Input inputMode="numeric" />
           </NumberField.Group>
         </NumberField>
       </div>
@@ -127,7 +127,7 @@ export function PlanForm({ plan }: { plan?: PlanRow }) {
       >
         <Label>Sesiones incluidas</Label>
         <NumberField.Group>
-          <NumberField.Input placeholder="Vacío = ilimitadas" />
+          <NumberField.Input placeholder="Vacío = ilimitadas" inputMode="numeric" />
         </NumberField.Group>
       </NumberField>
 
@@ -180,7 +180,7 @@ export function SessionTypeForm({ type }: { type?: SessionTypeRow }) {
         >
           <Label>Duración (min) *</Label>
           <NumberField.Group>
-            <NumberField.Input />
+            <NumberField.Input inputMode="numeric" />
           </NumberField.Group>
         </NumberField>
         <label className="flex flex-col gap-1.5">
@@ -275,7 +275,7 @@ export function MeasurementTypeForm({ type }: { type?: MeasurementTypeRow }) {
         >
           <Label>Orden *</Label>
           <NumberField.Group>
-            <NumberField.Input />
+            <NumberField.Input inputMode="numeric" />
           </NumberField.Group>
         </NumberField>
       </div>

@@ -69,7 +69,7 @@ export function SessionForm({
         >
           <Label>Minutos *</Label>
           <NumberField.Group>
-            <NumberField.Input />
+            <NumberField.Input inputMode="numeric" />
           </NumberField.Group>
         </NumberField>
         <NumberField
@@ -81,7 +81,7 @@ export function SessionForm({
         >
           <Label>Aforo</Label>
           <NumberField.Group>
-            <NumberField.Input placeholder="∞" />
+            <NumberField.Input placeholder="∞" inputMode="numeric" />
           </NumberField.Group>
         </NumberField>
         <Select

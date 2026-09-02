@@ -93,6 +93,7 @@ export function MeasurementForm({
               <NumberField.Group>
                 <NumberField.Input
                   placeholder="—"
+                  inputMode="decimal"
                   className="text-lg font-semibold"
                 />
               </NumberField.Group>

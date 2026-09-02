@@ -86,7 +86,7 @@ export function PaymentForm({
         >
           <Label>Importe (CUP) *</Label>
           <NumberField.Group>
-            <NumberField.Input placeholder="3000" />
+            <NumberField.Input placeholder="3000" inputMode="decimal" />
           </NumberField.Group>
         </NumberField>
       </div>

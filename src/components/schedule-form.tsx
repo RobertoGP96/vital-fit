@@ -84,7 +84,7 @@ export function ScheduleForm({
         >
           <Label>Minutos *</Label>
           <NumberField.Group>
-            <NumberField.Input />
+            <NumberField.Input inputMode="numeric" />
           </NumberField.Group>
         </NumberField>
         <NumberField
@@ -96,7 +96,7 @@ export function ScheduleForm({
         >
           <Label>Aforo</Label>
           <NumberField.Group>
-            <NumberField.Input placeholder="∞" />
+            <NumberField.Input placeholder="∞" inputMode="numeric" />
           </NumberField.Group>
         </NumberField>
         <Select name="session_type_id" fullWidth defaultSelectedKey="">

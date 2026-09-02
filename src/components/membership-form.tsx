@@ -111,7 +111,7 @@ export function MembershipForm({
       >
         <Label>Precio acordado (CUP)</Label>
         <NumberField.Group>
-          <NumberField.Input />
+          <NumberField.Input inputMode="decimal" />
         </NumberField.Group>
       </NumberField>
 

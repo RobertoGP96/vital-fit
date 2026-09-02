@@ -169,7 +169,7 @@ export function ClientForm({
         >
           <Label>Estatura (cm)</Label>
           <NumberField.Group>
-            <NumberField.Input placeholder="170" />
+            <NumberField.Input placeholder="170" inputMode="decimal" />
           </NumberField.Group>
         </NumberField>
       </div>

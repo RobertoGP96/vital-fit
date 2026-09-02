@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans, Unbounded } from "next/font/google";
+import { Providers } from "@/components/providers";
 import { SwRegister } from "@/components/sw-register";
 import "./globals.css";
 
@@ -38,7 +39,7 @@ export default function RootLayout({
   return (
     <html lang="es" className={`${jakarta.variable} ${unbounded.variable}`}>
       <body className="min-h-dvh antialiased">
-        {children}
+        <Providers>{children}</Providers>
         <SwRegister />
       </body>
     </html>
