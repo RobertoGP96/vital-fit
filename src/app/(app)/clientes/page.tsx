@@ -70,7 +70,9 @@ export default async function ClientesPage(props: {
               >
                 <Avatar name={c.full_name} size="sm" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold">{c.full_name}</p>
+                  <p className="truncate font-semibold text-brand-600">
+                    {c.full_name}
+                  </p>
                   {c.phone && (
                     <p className="truncate text-sm text-muted">{c.phone}</p>
                   )}
@@ -86,9 +88,7 @@ export default async function ClientesPage(props: {
         </ul>
       )}
 
-      {session.role === "admin" && (
-        <Fab href="/clientes/nuevo" label="Registrar cliente" />
-      )}
+      <Fab href="/clientes/nuevo" label="Registrar cliente" />
     </div>
   );
 }
