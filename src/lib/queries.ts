@@ -20,6 +20,17 @@ export async function getAssignedClients(
     .sort((a, b) => a.full_name.localeCompare(b.full_name));
 }
 
+/** Roster activo completo (la distribución de bloques es de todo el grupo). */
+export async function getActiveClients(): Promise<ClientOption[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("clients")
+    .select("id, full_name")
+    .eq("is_active", true)
+    .order("full_name");
+  return (data ?? []) as ClientOption[];
+}
+
 export type TrainerOption = { id: string; full_name: string; role: string };
 
 /** Staff activo (entrenadores y coordinadores) para selectores. */

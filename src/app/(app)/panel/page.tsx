@@ -12,23 +12,17 @@ import {
 } from "lucide-react";
 import { requireSession } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import {
+  mergeDayEntries,
+  monthOf,
+  type BlockRow,
+  type DayEntry,
+  type SessionRow,
+} from "@/lib/agenda";
 import { formatLongDate, formatTime, todayISO } from "@/lib/format";
 import { Avatar } from "@/components/avatar";
 
 export const metadata: Metadata = { title: "Inicio" };
-
-type TodaySession = {
-  id: string;
-  start_time: string;
-  duration_min: number;
-  status: string;
-  session_types: { name: string; color: string | null } | null;
-  session_participants: {
-    client_id: string;
-    clients: { full_name: string } | null;
-  }[];
-  attendance_records: { client_id: string; attended: boolean }[];
-};
 
 type ClientRow = { id: string; full_name: string; phone: string | null };
 
@@ -36,8 +30,10 @@ export default async function PanelPage() {
   const session = await requireSession();
   const supabase = await createClient();
 
+  const today = todayISO();
   const [
     { data: profile },
+    { data: blocksData },
     { data: sessionsData },
     { data: clientsData },
     { count: alertCount },
@@ -48,12 +44,19 @@ export default async function PanelPage() {
         .eq("id", session.userId)
         .single(),
       supabase
+        .from("session_blocks")
+        .select(
+          "id, month, start_time, end_time, capacity, session_block_participants(client_id, clients(full_name))",
+        )
+        .eq("month", monthOf(today))
+        .eq("is_active", true)
+        .order("start_time"),
+      supabase
         .from("sessions")
         .select(
-          "id, start_time, duration_min, status, session_types(name, color), session_participants(client_id, clients(full_name)), attendance_records(client_id, attended)",
+          "id, block_id, session_date, start_time, duration_min, status, capacity, session_participants(client_id, clients(full_name)), attendance_records(client_id, attended)",
         )
-        .eq("session_date", todayISO())
-        .neq("status", "cancelada")
+        .eq("session_date", today)
         .order("start_time"),
       supabase
         .from("clients")
@@ -68,7 +71,10 @@ export default async function PanelPage() {
     ]);
 
   const firstName = (profile?.full_name ?? "").split(" ")[0] || "Entrenador";
-  const sessions = (sessionsData ?? []) as unknown as TodaySession[];
+  const entries = mergeDayEntries(
+    (blocksData ?? []) as unknown as BlockRow[],
+    (sessionsData ?? []) as unknown as SessionRow[],
+  ).filter((e) => e.status !== "cancelada");
   const clients = (clientsData ?? []) as ClientRow[];
 
   return (
@@ -170,15 +176,15 @@ export default async function PanelPage() {
           </Link>
         </div>
 
-        {sessions.length === 0 ? (
+        {entries.length === 0 ? (
           <p className="rounded-(--radius-card) border border-dashed border-line bg-white p-5 text-center text-sm text-muted">
-            No hay sesiones programadas para hoy.
+            No hay sesiones definidas para hoy.
           </p>
         ) : (
           <ul className="no-scrollbar -mx-5 flex snap-x gap-3 overflow-x-auto px-5">
-            {sessions.map((s) => (
-              <li key={s.id} className="w-[210px] shrink-0 snap-start">
-                <SessionTodayCard session={s} />
+            {entries.map((e) => (
+              <li key={e.key} className="w-[210px] shrink-0 snap-start">
+                <SessionTodayCard entry={e} />
               </li>
             ))}
           </ul>
@@ -248,36 +254,31 @@ function QuickLink({
   );
 }
 
-function SessionTodayCard({ session: s }: { session: TodaySession }) {
-  const participants = s.session_participants;
-  const attended = s.attendance_records.filter((a) => a.attended).length;
-  const tracked = s.attendance_records.length;
-  const allAttended =
-    participants.length > 0 && attended === participants.length;
-  const typeName = s.session_types?.name ?? "Sesión";
-  const color = s.session_types?.color ?? "#17C964";
+function SessionTodayCard({ entry: e }: { entry: DayEntry }) {
+  const n = e.participants.length;
+  const allAttended = n > 0 && e.attended === n;
 
   return (
-    <div
+    <Link
+      href={e.sessionId ? `/agenda/sesion/${e.sessionId}` : "/agenda"}
       className={`flex h-full flex-col rounded-[22px] border bg-white p-2.5 ${
         allAttended ? "border-brand" : "border-line"
       }`}
     >
-      {/* Área de imagen con chip de tipo (como en el diseño) */}
+      {/* Área de imagen con chip (como en el diseño) */}
       <div className="relative h-[92px] overflow-hidden rounded-[15px] bg-soft">
         <Chip
           size="sm"
-          className="absolute left-2 top-2 border-transparent text-[10.5px] font-extrabold"
-          style={{ backgroundColor: `${color}26`, color }}
+          className="absolute left-2 top-2 border-transparent bg-brand/15 text-[10.5px] font-extrabold text-brand-600"
         >
-          {typeName}
+          {n > 1 ? `Grupal · ${n}` : "Sesión"}
         </Chip>
       </div>
 
       <div className="px-1.5 pb-1 pt-2.5">
         <div className="flex items-center justify-between">
           <p className="text-[13.5px] font-extrabold">
-            {formatTime(s.start_time)} · {s.duration_min} min
+            {formatTime(e.startTime)} – {formatTime(e.endTime)}
           </p>
           <span
             aria-hidden
@@ -293,27 +294,21 @@ function SessionTodayCard({ session: s }: { session: TodaySession }) {
 
         <div className="mt-[9px] flex items-center">
           <div className="flex -space-x-2">
-            {participants.slice(0, 3).map((p) => (
-              <Avatar
-                key={p.client_id}
-                name={p.clients?.full_name ?? "?"}
-                size="xs"
-                ring
-              />
+            {e.participants.slice(0, 3).map((p) => (
+              <Avatar key={p.id} name={p.name} size="xs" ring />
             ))}
           </div>
           <p className="ml-2 text-[11.5px] font-semibold text-muted">
-            {participants.length === 0
-              ? "Sin participantes"
-              : tracked > 0
-                ? `${attended}/${participants.length} asistieron`
-                : participants.length === 1
-                  ? (participants[0].clients?.full_name ?? "").split(" ")[0] ||
-                    "1 cliente"
-                  : `${participants.length} participantes`}
+            {n === 0
+              ? "Sin clientes"
+              : e.tracked > 0
+                ? `${e.attended}/${n} asistieron`
+                : n === 1
+                  ? e.participants[0].name.split(" ")[0] || "1 cliente"
+                  : `${n} clientes`}
           </p>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }

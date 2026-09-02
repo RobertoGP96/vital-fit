@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { endTimeOf } from "@/lib/agenda";
 import { formatShortDate, formatTime } from "@/lib/format";
 
 type Row = {
@@ -8,7 +9,6 @@ type Row = {
   start_time: string;
   duration_min: number;
   status: string;
-  session_types: { name: string; color: string | null } | null;
   profiles: { full_name: string } | null;
   attendance_records: { client_id: string; attended: boolean }[];
 };
@@ -28,7 +28,7 @@ export default async function SesionesClientePage(props: {
   const { data } = await supabase
     .from("sessions")
     .select(
-      "id, session_date, start_time, duration_min, status, session_types(name, color), profiles!sessions_trainer_id_fkey(full_name), attendance_records(client_id, attended), session_participants!inner(client_id)",
+      "id, session_date, start_time, duration_min, status, profiles!sessions_trainer_id_fkey(full_name), attendance_records(client_id, attended), session_participants!inner(client_id)",
     )
     .eq("session_participants.client_id", id)
     .order("session_date", { ascending: false })
@@ -41,7 +41,8 @@ export default async function SesionesClientePage(props: {
     <div className="flex flex-col gap-3">
       {sessions.length === 0 ? (
         <p className="rounded-(--radius-card) border border-dashed border-line bg-white p-8 text-center text-sm text-muted">
-          Este cliente aún no tiene sesiones. Créalas desde la{" "}
+          Este cliente aún no tiene sesiones. Asígnalo a un bloque desde el
+          plan del mes y ábrelas en la{" "}
           <Link href="/agenda" className="font-semibold text-brand-600">
             agenda
           </Link>
@@ -51,24 +52,21 @@ export default async function SesionesClientePage(props: {
         <ul className="flex flex-col gap-2">
           {sessions.map((s) => {
             const att = s.attendance_records.find((a) => a.client_id === id);
-            const color = s.session_types?.color ?? "#17C964";
             return (
               <li key={s.id}>
                 <Link
                   href={`/agenda/sesion/${s.id}`}
                   className="flex items-center gap-3 rounded-2xl border border-line bg-white p-3.5 hover:border-brand/40"
                 >
-                  <span
-                    className="h-10 w-1.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: color }}
-                  />
+                  <span className="h-10 w-1.5 shrink-0 rounded-full bg-brand" />
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold">
                       {formatShortDate(s.session_date)} ·{" "}
-                      {formatTime(s.start_time)}
+                      {formatTime(s.start_time)} –{" "}
+                      {formatTime(endTimeOf(s.start_time, s.duration_min))}
                     </p>
                     <p className="text-sm text-muted">
-                      {s.session_types?.name ?? "Sesión"} · {s.duration_min} min
+                      Sesión
                       {s.profiles ? ` · ${s.profiles.full_name}` : ""}
                     </p>
                   </div>

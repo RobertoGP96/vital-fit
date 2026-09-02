@@ -1,18 +1,18 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Button, Chip, Label, ListBox, NumberField, Select } from "@heroui/react";
+import { Button, Chip, ListBox, Select } from "@heroui/react";
 import { UserMinus } from "lucide-react";
 import { getSessionInfo } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { getAssignedClients } from "@/lib/queries";
+import { getActiveClients, getAssignedClients } from "@/lib/queries";
 import {
   addParticipantAction,
   removeParticipantAction,
   setSessionStatusAction,
-  updateSessionDurationAction,
 } from "@/actions/sessions";
 import { AttendanceToggle } from "@/components/attendance-toggle";
 import { Avatar } from "@/components/avatar";
+import { endTimeOf } from "@/lib/agenda";
 import { formatLongDate, formatTime } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Sesión" };
@@ -22,13 +22,12 @@ export default async function SesionPage(props: {
 }) {
   const { id } = await props.params;
   const auth = await getSessionInfo();
-  const canEditDuration = auth != null && auth.role !== "trainer";
   const supabase = await createClient();
 
   const { data: s } = await supabase
     .from("sessions")
     .select(
-      "id, trainer_id, session_date, start_time, duration_min, capacity, status, notes, session_types(name, color), profiles!sessions_trainer_id_fkey(full_name), session_participants(client_id, clients(id, full_name)), attendance_records(client_id, attended)",
+      "id, trainer_id, block_id, session_date, start_time, duration_min, capacity, status, notes, profiles!sessions_trainer_id_fkey(full_name), session_participants(client_id, clients(id, full_name)), attendance_records(client_id, attended)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -46,14 +45,18 @@ export default async function SesionPage(props: {
     ]),
   );
   const attended = [...attendance.values()].filter(Boolean).length;
-  const color =
-    (s.session_types as unknown as { color: string | null } | null)?.color ??
-    "#17C964";
+  const trainerName = (s.profiles as unknown as { full_name: string } | null)
+    ?.full_name;
 
+  // Sesión del grupo: cualquier cliente activo puede sumarse al día. Legado
+  // con entrenador fijo: solo sus clientes asignados (la RLS lo refuerza).
   const inSession = new Set(participants.map((p) => p.client_id));
-  const addable = (await getAssignedClients(s.trainer_id)).filter(
-    (c) => !inSession.has(c.id),
-  );
+  const roster = s.trainer_id
+    ? await getAssignedClients(s.trainer_id)
+    : auth?.role === "trainer"
+      ? await getAssignedClients(auth.userId)
+      : await getActiveClients();
+  const addable = roster.filter((c) => !inSession.has(c.id));
 
   return (
     <div className="flex flex-col gap-4">
@@ -64,58 +67,23 @@ export default async function SesionPage(props: {
             "radial-gradient(400px 260px at 15% -20%, var(--color-ink-2), var(--color-ink))",
         }}
       >
-        <Chip
-          size="sm"
-          className="mb-2 font-bold"
-          style={{ backgroundColor: `${color}33`, color }}
-        >
-          {(s.session_types as unknown as { name: string } | null)?.name ??
-            "Sesión"}
-          {participants.length > 1 && " · Grupal"}
+        <Chip size="sm" className="mb-2 bg-brand/25 font-bold text-mint">
+          {participants.length > 1
+            ? `Grupal · ${participants.length}`
+            : "Sesión"}
         </Chip>
         <h1 className="text-xl font-bold">
-          {formatTime(s.start_time)} · {s.duration_min} min
+          {formatTime(s.start_time)} –{" "}
+          {formatTime(endTimeOf(s.start_time, s.duration_min))}
         </h1>
         <p className="text-sm text-cream/70">
-          {formatLongDate(s.session_date)} ·{" "}
-          {(s.profiles as unknown as { full_name: string } | null)?.full_name ??
-            ""}
+          {formatLongDate(s.session_date)}
+          {trainerName ? ` · ${trainerName}` : ""}
         </p>
         {s.status !== "programada" && (
           <p className="mt-1 text-sm font-bold uppercase tracking-wide text-cream/80">
             {s.status}
           </p>
-        )}
-
-        {canEditDuration && (
-          <form
-            action={updateSessionDurationAction}
-            className="mt-3 flex items-end gap-2"
-          >
-            <input type="hidden" name="id" value={s.id} />
-            <NumberField
-              name="duration_min"
-              minValue={10}
-              maxValue={360}
-              step={5}
-              defaultValue={s.duration_min}
-              formatOptions={{ maximumFractionDigits: 0, useGrouping: false }}
-              className="w-28"
-            >
-              <Label className="text-cream/70">Duración (min)</Label>
-              <NumberField.Group>
-                <NumberField.Input inputMode="numeric" />
-              </NumberField.Group>
-            </NumberField>
-            <Button
-              type="submit"
-              variant="secondary"
-              size="sm"
-              className="rounded-full font-semibold"
-            >
-              Guardar
-            </Button>
-          </form>
         )}
       </header>
 

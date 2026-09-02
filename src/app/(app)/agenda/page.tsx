@@ -1,36 +1,30 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Button, Chip, buttonVariants } from "@heroui/react";
-import { ChevronLeft, ChevronRight, RefreshCw, Repeat } from "lucide-react";
+import { Chip, buttonVariants } from "@heroui/react";
+import { CalendarCog, ChevronLeft, ChevronRight } from "lucide-react";
 import { addDays, format, startOfWeek } from "date-fns";
 import { es } from "date-fns/locale";
 import { requireSession } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { getActiveTrainers } from "@/lib/queries";
-import { Fab } from "@/components/fab";
-import { generateWeekAction } from "@/actions/sessions";
+import { openBlockSessionAction } from "@/actions/sessions";
+import {
+  mergeDayEntries,
+  monthOf,
+  participantSummary,
+  type BlockRow,
+  type DayEntry,
+  type SessionRow,
+} from "@/lib/agenda";
 import { formatTime, todayISO } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Agenda" };
 
-type Row = {
-  id: string;
-  trainer_id: string;
-  session_date: string;
-  start_time: string;
-  duration_min: number;
-  status: string;
-  session_types: { name: string; color: string | null } | null;
-  profiles: { full_name: string } | null;
-  session_participants: { client_id: string; clients: { full_name: string } | null }[];
-};
-
 export default async function AgendaPage(props: {
-  searchParams: Promise<{ semana?: string; dia?: string; entrenador?: string }>;
+  searchParams: Promise<{ semana?: string; dia?: string }>;
 }) {
   const session = await requireSession();
   const params = await props.searchParams;
-  const canManageAll = session.role !== "trainer";
+  const canPlan = session.role !== "trainer";
 
   const anchor = /^\d{4}-\d{2}-\d{2}$/.test(params.semana ?? "")
     ? new Date(`${params.semana}T00:00:00`)
@@ -45,43 +39,55 @@ export default async function AgendaPage(props: {
       ? todayISO()
       : fromISO;
 
+  // La semana puede abarcar dos meses: se traen los bloques de ambos.
+  const months = [...new Set(days.map((d) => monthOf(format(d, "yyyy-MM-dd"))))];
+
   const supabase = await createClient();
-  let query = supabase
-    .from("sessions")
-    .select(
-      "id, trainer_id, session_date, start_time, duration_min, status, session_types(name, color), profiles!sessions_trainer_id_fkey(full_name), session_participants(client_id, clients(full_name))",
-    )
-    .gte("session_date", fromISO)
-    .lte("session_date", toISO)
-    .order("start_time");
-
-  if (canManageAll && params.entrenador) {
-    query = query.eq("trainer_id", params.entrenador);
-  }
-
-  const [{ data: sessionsData }, trainers] = await Promise.all([
-    query,
-    canManageAll ? getActiveTrainers() : Promise.resolve([]),
+  const [{ data: blocksData }, { data: sessionsData }] = await Promise.all([
+    supabase
+      .from("session_blocks")
+      .select(
+        "id, month, start_time, end_time, capacity, session_block_participants(client_id, clients(full_name))",
+      )
+      .in("month", months)
+      .eq("is_active", true)
+      .order("start_time"),
+    supabase
+      .from("sessions")
+      .select(
+        "id, block_id, session_date, start_time, duration_min, status, capacity, session_participants(client_id, clients(full_name)), attendance_records(client_id, attended)",
+      )
+      .gte("session_date", fromISO)
+      .lte("session_date", toISO)
+      .order("start_time"),
   ]);
 
-  const sessions = (sessionsData ?? []) as unknown as Row[];
-  const byDay = new Map<string, Row[]>();
-  for (const s of sessions) {
-    const list = byDay.get(s.session_date) ?? [];
-    list.push(s);
-    byDay.set(s.session_date, list);
+  const blocksByMonth = new Map<string, BlockRow[]>();
+  for (const b of (blocksData ?? []) as unknown as BlockRow[]) {
+    const list = blocksByMonth.get(b.month) ?? [];
+    list.push(b);
+    blocksByMonth.set(b.month, list);
   }
-  const daySessions = byDay.get(selectedDay) ?? [];
+  const sessionsByDay = new Map<string, SessionRow[]>();
+  for (const s of (sessionsData ?? []) as unknown as SessionRow[]) {
+    const list = sessionsByDay.get(s.session_date) ?? [];
+    list.push(s);
+    sessionsByDay.set(s.session_date, list);
+  }
+
+  const dayCount = (iso: string) =>
+    (blocksByMonth.get(monthOf(iso))?.length ?? 0) +
+    (sessionsByDay.get(iso)?.filter((s) => !s.block_id).length ?? 0);
+
+  const entries = mergeDayEntries(
+    blocksByMonth.get(monthOf(selectedDay)) ?? [],
+    sessionsByDay.get(selectedDay) ?? [],
+  );
 
   const qs = (over: Record<string, string>) => {
     const p = new URLSearchParams();
     p.set("semana", over.semana ?? fromISO);
     p.set("dia", over.dia ?? selectedDay);
-    if (params.entrenador) p.set("entrenador", params.entrenador);
-    if (over.entrenador !== undefined) {
-      if (over.entrenador) p.set("entrenador", over.entrenador);
-      else p.delete("entrenador");
-    }
     return `/agenda?${p.toString()}`;
   };
 
@@ -89,47 +95,20 @@ export default async function AgendaPage(props: {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">Agenda</h1>
-        <Link
-          href="/agenda/horarios"
-          className={buttonVariants({
-            variant: "outline",
-            size: "sm",
-            className: "rounded-full font-semibold text-ink/70",
-          })}
-        >
-          <Repeat size={15} />
-          Horarios
-        </Link>
-      </div>
-
-      {/* Selector de entrenador (coordinador/admin) */}
-      {canManageAll && trainers.length > 0 && (
-        <div className="no-scrollbar -mx-5 flex gap-2 overflow-x-auto px-5">
+        {canPlan && (
           <Link
-            href={qs({ entrenador: "" })}
-            className={
-              !params.entrenador
-                ? "shrink-0 rounded-full bg-ink px-3.5 py-1.5 text-sm font-semibold text-cream"
-                : "shrink-0 rounded-full border border-line bg-white px-3.5 py-1.5 text-sm text-muted"
-            }
+            href={`/agenda/mes?mes=${selectedDay.slice(0, 7)}`}
+            className={buttonVariants({
+              variant: "outline",
+              size: "sm",
+              className: "rounded-full font-semibold text-ink/70",
+            })}
           >
-            Todos
+            <CalendarCog size={15} />
+            Plan del mes
           </Link>
-          {trainers.map((t) => (
-            <Link
-              key={t.id}
-              href={qs({ entrenador: t.id })}
-              className={
-                params.entrenador === t.id
-                  ? "shrink-0 rounded-full bg-ink px-3.5 py-1.5 text-sm font-semibold text-cream"
-                  : "shrink-0 rounded-full border border-line bg-white px-3.5 py-1.5 text-sm text-muted"
-              }
-            >
-              {t.full_name.split(" ")[0]}
-            </Link>
-          ))}
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Navegación de semana */}
       <div className="flex items-center justify-between">
@@ -174,7 +153,7 @@ export default async function AgendaPage(props: {
         {days.map((d) => {
           const iso = format(d, "yyyy-MM-dd");
           const active = iso === selectedDay;
-          const count = byDay.get(iso)?.length ?? 0;
+          const count = dayCount(iso);
           return (
             <Link
               key={iso}
@@ -197,78 +176,78 @@ export default async function AgendaPage(props: {
         })}
       </div>
 
-      {/* Generar desde horarios recurrentes */}
-      <form action={generateWeekAction} className="flex justify-end">
-        <input type="hidden" name="from" value={fromISO} />
-        <input type="hidden" name="to" value={toISO} />
-        <Button
-          type="submit"
-          variant="ghost"
-          size="sm"
-          className="font-semibold text-brand-600"
-        >
-          <RefreshCw size={14} />
-          Generar sesiones de la semana
-        </Button>
-      </form>
-
-      {/* Sesiones del día */}
-      {daySessions.length === 0 ? (
-        <p className="rounded-(--radius-card) border border-dashed border-line bg-white p-8 text-center text-sm text-muted">
-          Sin sesiones este día.
-        </p>
+      {/* Sesiones (bloques) del día */}
+      {entries.length === 0 ? (
+        <div className="rounded-(--radius-card) border border-dashed border-line bg-white p-8 text-center text-sm text-muted">
+          <p>Este mes aún no tiene sesiones definidas.</p>
+          {canPlan && (
+            <Link
+              href={`/agenda/mes?mes=${selectedDay.slice(0, 7)}`}
+              className="mt-1 inline-block font-semibold text-brand-600"
+            >
+              Definir el plan del mes
+            </Link>
+          )}
+        </div>
       ) : (
         <ul className="flex flex-col gap-2">
-          {daySessions.map((s) => {
-            const color = s.session_types?.color ?? "#17C964";
-            const n = s.session_participants.length;
-            return (
-              <li key={s.id}>
+          {entries.map((e) => (
+            <li key={e.key}>
+              {e.sessionId ? (
                 <Link
-                  href={`/agenda/sesion/${s.id}`}
-                  className={`flex items-center gap-3 rounded-2xl border border-line bg-white p-3.5 hover:border-brand/40 ${s.status === "cancelada" ? "opacity-50" : ""}`}
+                  href={`/agenda/sesion/${e.sessionId}`}
+                  className={`flex w-full items-center gap-3 rounded-2xl border border-line bg-white p-3.5 text-left hover:border-brand/40 ${e.status === "cancelada" ? "opacity-50" : ""}`}
                 >
-                  <span
-                    className="h-11 w-1.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: color }}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="font-bold">
-                      {formatTime(s.start_time)}
-                      <span className="ml-1.5 text-sm font-medium text-muted">
-                        · {s.duration_min} min · {s.session_types?.name ?? "Sesión"}
-                      </span>
-                    </p>
-                    <p className="truncate text-sm text-muted">
-                      {canManageAll && s.profiles
-                        ? `${s.profiles.full_name} · `
-                        : ""}
-                      {n === 1
-                        ? (s.session_participants[0]?.clients?.full_name ?? "1 cliente")
-                        : `${n} participantes`}
-                    </p>
-                  </div>
-                  {n > 1 && (
-                    <Chip size="sm" color="accent" variant="soft" className="shrink-0 font-bold">
-                      Grupal · {n}
-                    </Chip>
-                  )}
-                  {s.status !== "programada" && (
-                    <span className="shrink-0 text-xs font-semibold capitalize text-muted">
-                      {s.status}
-                    </span>
-                  )}
+                  <EntryContent entry={e} />
                 </Link>
-              </li>
-            );
-          })}
+              ) : (
+                <form action={openBlockSessionAction}>
+                  <input type="hidden" name="block_id" value={e.blockId!} />
+                  <input type="hidden" name="date" value={selectedDay} />
+                  <button
+                    type="submit"
+                    className="flex w-full items-center gap-3 rounded-2xl border border-line bg-white p-3.5 text-left hover:border-brand/40"
+                  >
+                    <EntryContent entry={e} />
+                  </button>
+                </form>
+              )}
+            </li>
+          ))}
         </ul>
       )}
-
-      <Fab
-        href={`/agenda/nueva${params.entrenador ? `?entrenador=${params.entrenador}` : ""}`}
-        label="Nueva sesión"
-      />
     </div>
+  );
+}
+
+function EntryContent({ entry: e }: { entry: DayEntry }) {
+  const n = e.participants.length;
+  return (
+    <>
+      <span className="h-11 w-1.5 shrink-0 rounded-full bg-brand" />
+      <div className="min-w-0 flex-1">
+        <p className="font-bold">
+          {formatTime(e.startTime)} – {formatTime(e.endTime)}
+          {e.capacity != null && (
+            <span className="ml-1.5 text-sm font-medium text-muted">
+              · aforo {e.capacity}
+            </span>
+          )}
+        </p>
+        <p className="truncate text-sm text-muted">
+          {participantSummary(e.participants)}
+        </p>
+      </div>
+      {n > 0 && (
+        <Chip size="sm" color="accent" variant="soft" className="shrink-0 font-bold">
+          {e.tracked > 0 ? `${e.attended}/${n} ✓` : `${n} cliente${n === 1 ? "" : "s"}`}
+        </Chip>
+      )}
+      {e.status !== "programada" && (
+        <span className="shrink-0 text-xs font-semibold capitalize text-muted">
+          {e.status}
+        </span>
+      )}
+    </>
   );
 }

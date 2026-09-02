@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
-  CalendarRange,
   ChevronRight,
   CreditCard,
   Ruler,
@@ -79,9 +78,6 @@ export default async function AdminOverviewPage() {
         </AdminLink>
         <AdminLink href="/admin/planes" label="Planes de membresía">
           <CreditCard size={20} />
-        </AdminLink>
-        <AdminLink href="/admin/tipos-sesion" label="Tipos de sesión">
-          <CalendarRange size={20} />
         </AdminLink>
         <AdminLink href="/admin/tipos-medida" label="Tipos de medida">
           <Ruler size={20} />
