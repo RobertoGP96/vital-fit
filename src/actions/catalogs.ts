@@ -178,10 +178,17 @@ const UNIT_CATEGORY: Record<string, "longitud" | "peso" | "porcentaje"> = {
   "%": "porcentaje",
 };
 
+// "todos" (o vacío) significa sin restricción → null en BD.
+const onlyForSexSchema = z.preprocess(
+  (v) => (v == null || v === "" || v === "todos" ? null : v),
+  z.enum(["masculino", "femenino"]).nullable(),
+);
+
 const measurementTypeCreateSchema = z.object({
   name_es: z.string().trim().min(2, "Nombre demasiado corto").max(60),
   canonical_unit: z.enum(["cm", "kg", "%"]),
   sort_order: z.coerce.number().int().min(0).max(9999),
+  only_for_sex: onlyForSexSchema,
 });
 
 export async function createMeasurementTypeAction(
@@ -216,6 +223,7 @@ export async function createMeasurementTypeAction(
 const measurementTypeUpdateSchema = z.object({
   name_es: z.string().trim().min(2, "Nombre demasiado corto").max(60),
   sort_order: z.coerce.number().int().min(0).max(9999),
+  only_for_sex: onlyForSexSchema,
 });
 
 export async function updateMeasurementTypeAction(

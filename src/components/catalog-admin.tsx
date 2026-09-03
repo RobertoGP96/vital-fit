@@ -213,6 +213,7 @@ export type MeasurementTypeRow = {
   name_es: string;
   canonical_unit: string;
   sort_order: number;
+  only_for_sex: "masculino" | "femenino" | null;
 };
 
 export function MeasurementTypeForm({ type }: { type?: MeasurementTypeRow }) {
@@ -279,6 +280,34 @@ export function MeasurementTypeForm({ type }: { type?: MeasurementTypeRow }) {
           </NumberField.Group>
         </NumberField>
       </div>
+
+      <Select
+        name="only_for_sex"
+        fullWidth
+        defaultSelectedKey={type?.only_for_sex ?? "todos"}
+      >
+        <Label>Aplica a</Label>
+        <Select.Trigger>
+          <Select.Value />
+          <Select.Indicator />
+        </Select.Trigger>
+        <Select.Popover>
+          <ListBox>
+            <ListBox.Item id="todos" textValue="Todos los clientes">
+              Todos los clientes
+              <ListBox.ItemIndicator />
+            </ListBox.Item>
+            <ListBox.Item id="masculino" textValue="Solo hombres">
+              Solo hombres
+              <ListBox.ItemIndicator />
+            </ListBox.Item>
+            <ListBox.Item id="femenino" textValue="Solo mujeres">
+              Solo mujeres
+              <ListBox.ItemIndicator />
+            </ListBox.Item>
+          </ListBox>
+        </Select.Popover>
+      </Select>
 
       {!isNew && (
         <p className="text-xs text-muted">

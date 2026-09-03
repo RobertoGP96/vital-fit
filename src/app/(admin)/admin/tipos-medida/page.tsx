@@ -18,7 +18,7 @@ export default async function TiposMedidaPage() {
 
   const { data } = await supabase
     .from("measurement_types")
-    .select("id, code, name_es, canonical_unit, sort_order, is_active")
+    .select("id, code, name_es, canonical_unit, sort_order, is_active, only_for_sex")
     .order("is_active", { ascending: false })
     .order("sort_order");
   const types = (data ?? []) as Row[];
@@ -59,6 +59,11 @@ export default async function TiposMedidaPage() {
                     <Chip color="accent" variant="soft" size="sm">
                       {t.canonical_unit}
                     </Chip>
+                    {t.only_for_sex && (
+                      <Chip color="default" variant="soft" size="sm">
+                        {t.only_for_sex === "masculino" ? "Solo hombres" : "Solo mujeres"}
+                      </Chip>
+                    )}
                     {!t.is_active && (
                       <Chip color="default" variant="soft" size="sm">
                         Inactivo
