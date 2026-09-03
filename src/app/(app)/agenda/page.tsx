@@ -11,6 +11,7 @@ import {
   mergeDayEntries,
   monthOf,
   participantSummary,
+  skyToneOf,
   type BlockRow,
   type DayEntry,
   type SessionRow,
@@ -224,7 +225,9 @@ function EntryContent({ entry: e }: { entry: DayEntry }) {
   const n = e.participants.length;
   return (
     <>
-      <span className="h-11 w-1.5 shrink-0 rounded-full bg-brand" />
+      <span
+        className={`h-11 w-1.5 shrink-0 rounded-full ${skyToneOf(e.startTime).bar}`}
+      />
       <div className="min-w-0 flex-1">
         <p className="font-bold">
           {formatTime(e.startTime)} – {formatTime(e.endTime)}

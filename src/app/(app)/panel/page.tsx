@@ -15,6 +15,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   mergeDayEntries,
   monthOf,
+  skyToneOf,
   type BlockRow,
   type DayEntry,
   type SessionRow,
@@ -265,11 +266,13 @@ function SessionTodayCard({ entry: e }: { entry: DayEntry }) {
         allAttended ? "border-brand" : "border-line"
       }`}
     >
-      {/* Área de imagen con chip (como en el diseño) */}
-      <div className="relative h-[92px] overflow-hidden rounded-[15px] bg-soft">
+      {/* Área de cielo según la hora (amanecer, tarde, noche) con chip */}
+      <div
+        className={`relative h-[92px] overflow-hidden rounded-[15px] ${skyToneOf(e.startTime).sky}`}
+      >
         <Chip
           size="sm"
-          className="absolute left-2 top-2 border-transparent bg-brand/15 text-[10.5px] font-extrabold text-brand-600"
+          className="absolute left-2 top-2 border-transparent bg-white/85 text-[10.5px] font-extrabold text-ink/80"
         >
           {n > 1 ? `Grupal · ${n}` : "Sesión"}
         </Chip>

@@ -108,6 +108,28 @@ export function mergeDayEntries(
   return entries.sort((a, b) => a.startTime.localeCompare(b.startTime));
 }
 
+/** Tonalidad del cielo según la hora de inicio: mañana azul cielo, tarde
+    anaranjada y tarde-noche morado oscuro. `bar` es la barra vertical de la
+    agenda y `sky` el fondo de las tarjetas del panel (clases estáticas para
+    que Tailwind las detecte). */
+export function skyToneOf(startTime: string): { bar: string; sky: string } {
+  const hour = Number(startTime.slice(0, 2));
+  if (hour < 12)
+    return {
+      bar: "bg-gradient-to-b from-sky-300 via-sky-400 to-sky-600",
+      sky: "bg-gradient-to-b from-sky-200 via-sky-300 to-sky-400",
+    };
+  if (hour < 18)
+    return {
+      bar: "bg-gradient-to-b from-amber-300 via-orange-400 to-orange-600",
+      sky: "bg-gradient-to-b from-amber-200 via-orange-300 to-orange-400",
+    };
+  return {
+    bar: "bg-gradient-to-b from-violet-500 via-purple-700 to-purple-950",
+    sky: "bg-gradient-to-b from-indigo-400 via-purple-600 to-purple-900",
+  };
+}
+
 /** 'Alberto Pérez, Jorge Ruiz y 2 más' (nombres de pila, hasta `max`). */
 export function participantSummary(
   participants: Participant[],
