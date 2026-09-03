@@ -7,14 +7,7 @@ import { Camera } from "lucide-react";
 import imageCompression from "browser-image-compression";
 import { createClient } from "@/lib/supabase/client";
 import { savePhotoRecordAction } from "@/actions/photos";
-
-const POSES = [
-  { value: "frente", label: "Frente" },
-  { value: "espalda", label: "Espalda" },
-  { value: "perfil_izquierdo", label: "Perfil izq." },
-  { value: "perfil_derecho", label: "Perfil der." },
-  { value: "otro", label: "Otra" },
-] as const;
+import { POSES } from "@/lib/poses";
 
 export function PhotoUploader({ clientId }: { clientId: string }) {
   const inputRef = useRef<HTMLInputElement>(null);

@@ -24,6 +24,11 @@ export function formatShortDate(date: Date | string): string {
   return format(d, "d MMM", { locale: es });
 }
 
+export function formatMediumDate(date: Date | string): string {
+  const d = typeof date === "string" ? new Date(`${date}T00:00:00`) : date;
+  return format(d, "d MMM yyyy", { locale: es });
+}
+
 /** '18:30:00' → '18:30' */
 export function formatTime(time: string): string {
   return time.slice(0, 5);

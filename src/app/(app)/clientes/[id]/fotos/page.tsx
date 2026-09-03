@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { PhotoUploader } from "@/components/photo-uploader";
-import { PhotoGrid, type PhotoItem } from "@/components/photo-grid";
+import { PhotosSection, type PhotoItem } from "@/components/photos-section";
 
 export default async function FotosPage(props: {
   params: Promise<{ id: string }>;
@@ -13,7 +13,7 @@ export default async function FotosPage(props: {
     .select("id, storage_path, pose, taken_on")
     .eq("client_id", id)
     .order("taken_on", { ascending: false })
-    .limit(60);
+    .limit(120);
 
   const rows = data ?? [];
   let photos: PhotoItem[] = [];
@@ -35,9 +35,11 @@ export default async function FotosPage(props: {
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <PhotoUploader clientId={id} />
-      <PhotoGrid photos={photos} />
-    </div>
+    <PhotosSection
+      photos={photos}
+      // key: React exige key al elemento (serializado desde RSC) que
+      // PhotosSection recoloca condicionalmente entre galería y comparador.
+      uploader={<PhotoUploader key="uploader" clientId={id} />}
+    />
   );
 }
