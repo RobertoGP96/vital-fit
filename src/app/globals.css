@@ -71,6 +71,29 @@ body {
   grid-template-columns: minmax(0, 1fr) 40px;
 }
 
+/* Los inputs de fecha/hora nativos tienen un ancho intrínseco (dd/mm/aaaa +
+   icono) que por defecto no cede; en rejillas y filas apretadas (o con la
+   fuente del sistema ampliada) empujan su columna y desbordan el formulario.
+   Dejar que se encojan como cualquier otro input. */
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"],
+input[type="month"] {
+  min-width: 0;
+  max-width: 100%;
+}
+.textfield:has(input[type="date"]),
+.textfield:has(input[type="datetime-local"]),
+.textfield:has(input[type="time"]),
+.textfield:has(input[type="month"]) {
+  min-width: 0;
+}
+/* iOS centra verticalmente el valor del input de fecha; alinearlo al inicio
+   como el resto de los campos. */
+input::-webkit-date-and-time-value {
+  text-align: start;
+}
+
 /* Ocultar scrollbars en franjas horizontales (agenda, tabs) como en el diseño */
 .no-scrollbar::-webkit-scrollbar {
   display: none;

@@ -40,7 +40,9 @@ export function MeasurementForm({
       <input type="hidden" name="client_id" value={clientId} />
       <input type="hidden" name="input_units" value={units} />
 
-      <div className="flex items-center justify-between gap-3">
+      {/* flex-wrap: en pantallas estrechas (≤360px) fecha + unidades no caben
+          en una fila; sin wrap el input de fecha desbordaba el formulario. */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
         {/* Sin flex-1: el input de fecha estira su wrapper, así que crecía
             hasta ocupar todo el hueco sobrante de la fila. */}
         <TextField
