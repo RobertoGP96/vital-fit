@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireCoordinatorOrAdmin } from "@/lib/auth";
+import { dbRuleMessage } from "@/lib/db-errors";
 import { createClient } from "@/lib/supabase/server";
 import type { FormState } from "@/actions/auth";
 
@@ -76,7 +77,9 @@ export async function deleteBlockAction(formData: FormData): Promise<void> {
   revalidateAgenda();
 }
 
-/** Reemplaza la distribución mensual de clientes del bloque. */
+/** Reemplaza la distribución mensual de clientes del bloque. Aplica un diff
+    (quitar/añadir) y añade uno a uno: si un cliente choca con su límite
+    diario o con el aforo, los demás cambios se conservan igualmente. */
 export async function saveBlockParticipantsAction(
   _prev: FormState,
   formData: FormData,
@@ -84,28 +87,54 @@ export async function saveBlockParticipantsAction(
   await requireCoordinatorOrAdmin();
   const blockId = String(formData.get("block_id") ?? "");
   if (!blockId) return { error: "Bloque inválido." };
-  const clientIds = formData.getAll("participants").map(String).filter(Boolean);
+  const clientIds = [
+    ...new Set(formData.getAll("participants").map(String).filter(Boolean)),
+  ];
 
   const supabase = await createClient();
-  const { error: dError } = await supabase
+  const { data: current, error: cError } = await supabase
     .from("session_block_participants")
-    .delete()
+    .select("client_id")
     .eq("block_id", blockId);
-  if (dError) return { error: "No se pudo actualizar la distribución." };
+  if (cError) return { error: "No se pudo actualizar la distribución." };
 
-  if (clientIds.length > 0) {
+  const currentIds = new Set((current ?? []).map((r) => r.client_id));
+  const toRemove = [...currentIds].filter((id) => !clientIds.includes(id));
+  const toAdd = clientIds.filter((id) => !currentIds.has(id));
+
+  if (toRemove.length > 0) {
     const { error } = await supabase
       .from("session_block_participants")
-      .insert(clientIds.map((client_id) => ({ block_id: blockId, client_id })));
+      .delete()
+      .eq("block_id", blockId)
+      .in("client_id", toRemove);
+    if (error) return { error: "No se pudo actualizar la distribución." };
+  }
+
+  const failures: string[] = [];
+  for (const client_id of toAdd) {
+    const { error } = await supabase
+      .from("session_block_participants")
+      .insert({ block_id: blockId, client_id });
     if (error) {
-      return {
-        error:
-          "No se pudieron guardar todos los clientes (¿supera el aforo del bloque?).",
-      };
+      failures.push(
+        dbRuleMessage(
+          error.message,
+          "No se pudo agregar a un cliente (¿supera el aforo del bloque?).",
+        ),
+      );
     }
   }
 
   revalidateAgenda();
+  if (failures.length > 0) {
+    return {
+      error:
+        failures.length === 1
+          ? failures[0]
+          : `${failures[0]} (y ${failures.length - 1} cliente(s) más sin agregar).`,
+    };
+  }
   return {};
 }
 
@@ -158,13 +187,12 @@ export async function copyPreviousMonthAction(
     const participants = (b.session_block_participants ?? []) as {
       client_id: string;
     }[];
-    if (participants.length > 0) {
-      await supabase.from("session_block_participants").insert(
-        participants.map((p) => ({
-          block_id: created.id,
-          client_id: p.client_id,
-        })),
-      );
+    // Uno a uno: si a un cliente le bajaron el límite diario desde el mes
+    // anterior, se omite de este bloque sin perder al resto.
+    for (const p of participants) {
+      await supabase
+        .from("session_block_participants")
+        .insert({ block_id: created.id, client_id: p.client_id });
     }
   }
 

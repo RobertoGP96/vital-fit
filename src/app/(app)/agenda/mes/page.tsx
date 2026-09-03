@@ -61,6 +61,17 @@ export default async function PlanMesPage(props: {
 
   const blocks = (blocksData ?? []) as unknown as PlanBlock[];
 
+  // Bloques activos del mes en los que ya está cada cliente: cada bloque
+  // equivale a una sesión diaria, así que al llegar a su límite el cliente
+  // deja de ser elegible en los demás bloques (el trigger lo refuerza).
+  const blockUse: Record<string, number> = {};
+  for (const b of blocks) {
+    if (!b.is_active) continue;
+    for (const p of b.session_block_participants ?? []) {
+      blockUse[p.client_id] = (blockUse[p.client_id] ?? 0) + 1;
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
@@ -201,6 +212,7 @@ export default async function PlanMesPage(props: {
                       blockId={b.id}
                       clients={clients}
                       selected={participants.map((p) => p.id)}
+                      use={blockUse}
                     />
                   </div>
                 </details>

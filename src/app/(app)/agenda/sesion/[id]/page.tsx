@@ -1,18 +1,18 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Button, Chip, ListBox, Select } from "@heroui/react";
+import { Button, Chip } from "@heroui/react";
 import { UserMinus } from "lucide-react";
 import { getSessionInfo } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveClients, getAssignedClients } from "@/lib/queries";
 import {
-  addParticipantAction,
   removeParticipantAction,
   setSessionStatusAction,
 } from "@/actions/sessions";
+import { AddParticipantForm } from "@/components/add-participant-form";
 import { AttendanceToggle } from "@/components/attendance-toggle";
 import { Avatar } from "@/components/avatar";
-import { endTimeOf } from "@/lib/agenda";
+import { dailySessionUse, endTimeOf, monthOf } from "@/lib/agenda";
 import { formatLongDate, formatTime } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Sesión" };
@@ -51,12 +51,32 @@ export default async function SesionPage(props: {
   // Sesión del grupo: cualquier cliente activo puede sumarse al día. Legado
   // con entrenador fijo: solo sus clientes asignados (la RLS lo refuerza).
   const inSession = new Set(participants.map((p) => p.client_id));
-  const roster = s.trainer_id
-    ? await getAssignedClients(s.trainer_id)
-    : auth?.role === "trainer"
-      ? await getAssignedClients(auth.userId)
-      : await getActiveClients();
-  const addable = roster.filter((c) => !inSession.has(c.id));
+  const [roster, dayRes, blocksRes] = await Promise.all([
+    s.trainer_id
+      ? getAssignedClients(s.trainer_id)
+      : auth?.role === "trainer"
+        ? getAssignedClients(auth.userId)
+        : getActiveClients(),
+    supabase
+      .from("sessions")
+      .select("id, status, block_id, session_participants(client_id)")
+      .eq("session_date", s.session_date),
+    supabase
+      .from("session_blocks")
+      .select("id, session_block_participants(client_id)")
+      .eq("month", monthOf(s.session_date))
+      .eq("is_active", true),
+  ]);
+
+  // Con cuántas sesiones ya cuenta cada cliente ese día (sin contar esta):
+  // al llegar a su límite diario deja de ser elegible.
+  const usedToday = dailySessionUse(dayRes.data ?? [], blocksRes.data ?? [], s.id);
+  const addable = roster
+    .filter((c) => !inSession.has(c.id))
+    .map((c) => ({
+      ...c,
+      atLimit: (usedToday.get(c.id) ?? 0) >= c.max_daily_sessions,
+    }));
 
   return (
     <div className="flex flex-col gap-4">
@@ -131,38 +151,7 @@ export default async function SesionPage(props: {
         </ul>
 
         {addable.length > 0 && (
-          <form action={addParticipantAction} className="mt-3 flex gap-2">
-            <input type="hidden" name="session_id" value={s.id} />
-            <Select
-              name="client_id"
-              isRequired
-              aria-label="Agregar participante"
-              placeholder="Agregar participante…"
-              className="min-w-0 flex-1"
-            >
-              <Select.Trigger>
-                <Select.Value />
-                <Select.Indicator />
-              </Select.Trigger>
-              <Select.Popover>
-                <ListBox>
-                  {addable.map((c) => (
-                    <ListBox.Item key={c.id} id={c.id} textValue={c.full_name}>
-                      {c.full_name}
-                      <ListBox.ItemIndicator />
-                    </ListBox.Item>
-                  ))}
-                </ListBox>
-              </Select.Popover>
-            </Select>
-            <Button
-              type="submit"
-              variant="secondary"
-              className="rounded-full font-semibold"
-            >
-              Agregar
-            </Button>
-          </form>
+          <AddParticipantForm sessionId={s.id} clients={addable} />
         )}
       </section>
 

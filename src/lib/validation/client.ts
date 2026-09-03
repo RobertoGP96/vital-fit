@@ -51,6 +51,19 @@ export const clientSchema = z.object({
     .nullable()
     .optional(),
   preferred_units: z.enum(["metric", "imperial"]).default("metric"),
+  max_daily_sessions: z
+    .string()
+    .trim()
+    .optional()
+    .default("1")
+    .transform((v) => (v === "" ? 1 : Number(v)))
+    .pipe(
+      z
+        .number("Límite de sesiones inválido")
+        .int("Límite de sesiones inválido")
+        .min(1, "El límite diario mínimo es 1 sesión")
+        .max(10, "El límite diario máximo es 10 sesiones"),
+    ),
   emergency_contact_name: optionalText,
   emergency_contact_phone: optionalText,
   goals: optionalText,

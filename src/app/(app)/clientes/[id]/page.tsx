@@ -66,6 +66,10 @@ export default async function ClientDatosPage(props: {
             label="Unidades"
             value={c.preferred_units === "imperial" ? "Pulgadas/libras" : "Cm/kg"}
           />
+          <Field
+            label="Sesiones/día"
+            value={`${c.max_daily_sessions ?? 1} máx.`}
+          />
         </dl>
       </section>
 

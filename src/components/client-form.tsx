@@ -23,6 +23,7 @@ type Defaults = Partial<{
   marital_status: string | null;
   height_cm: number | null;
   preferred_units: string;
+  max_daily_sessions: number;
   emergency_contact_name: string | null;
   emergency_contact_phone: string | null;
   goals: string | null;
@@ -174,29 +175,44 @@ export function ClientForm({
         </NumberField>
       </div>
 
-      <Select
-        name="preferred_units"
-        fullWidth
-        defaultSelectedKey={defaults.preferred_units ?? "metric"}
-      >
-        <Label>Unidades para medidas</Label>
-        <Select.Trigger>
-          <Select.Value />
-          <Select.Indicator />
-        </Select.Trigger>
-        <Select.Popover>
-          <ListBox>
-            <ListBox.Item id="metric" textValue="Centímetros / kilogramos">
-              Centímetros / kilogramos
-              <ListBox.ItemIndicator />
-            </ListBox.Item>
-            <ListBox.Item id="imperial" textValue="Pulgadas / libras">
-              Pulgadas / libras
-              <ListBox.ItemIndicator />
-            </ListBox.Item>
-          </ListBox>
-        </Select.Popover>
-      </Select>
+      <div className="grid grid-cols-2 gap-3">
+        <Select
+          name="preferred_units"
+          fullWidth
+          defaultSelectedKey={defaults.preferred_units ?? "metric"}
+        >
+          <Label>Unidades para medidas</Label>
+          <Select.Trigger>
+            <Select.Value />
+            <Select.Indicator />
+          </Select.Trigger>
+          <Select.Popover>
+            <ListBox>
+              <ListBox.Item id="metric" textValue="Centímetros / kilogramos">
+                Centímetros / kilogramos
+                <ListBox.ItemIndicator />
+              </ListBox.Item>
+              <ListBox.Item id="imperial" textValue="Pulgadas / libras">
+                Pulgadas / libras
+                <ListBox.ItemIndicator />
+              </ListBox.Item>
+            </ListBox>
+          </Select.Popover>
+        </Select>
+        <NumberField
+          name="max_daily_sessions"
+          fullWidth
+          minValue={1}
+          maxValue={10}
+          formatOptions={{ maximumFractionDigits: 0, useGrouping: false }}
+          defaultValue={defaults.max_daily_sessions ?? 1}
+        >
+          <Label>Sesiones máx. al día</Label>
+          <NumberField.Group>
+            <NumberField.Input inputMode="numeric" />
+          </NumberField.Group>
+        </NumberField>
+      </div>
 
       <div className="grid grid-cols-2 gap-3">
         <TextField

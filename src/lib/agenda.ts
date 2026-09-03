@@ -55,6 +55,39 @@ export function monthOf(dateISO: string): string {
   return `${dateISO.slice(0, 7)}-01`;
 }
 
+/** Sesiones comprometidas por cliente en un día: las materializadas no
+    canceladas (menos la excluida) + los bloques activos aún sin sesión
+    abierta esa fecha. Espejo en TS de public.client_sessions_on. */
+export function dailySessionUse(
+  daySessions: {
+    id: string;
+    status: string;
+    block_id: string | null;
+    session_participants: { client_id: string }[];
+  }[],
+  monthBlocks: {
+    id: string;
+    session_block_participants: { client_id: string }[];
+  }[],
+  excludeSessionId?: string,
+): Map<string, number> {
+  const use = new Map<string, number>();
+  const bump = (id: string) => use.set(id, (use.get(id) ?? 0) + 1);
+  const materialized = new Set(
+    daySessions.map((s) => s.block_id).filter(Boolean),
+  );
+
+  for (const s of daySessions) {
+    if (s.id === excludeSessionId || s.status === "cancelada") continue;
+    for (const p of s.session_participants ?? []) bump(p.client_id);
+  }
+  for (const b of monthBlocks) {
+    if (materialized.has(b.id)) continue;
+    for (const p of b.session_block_participants ?? []) bump(p.client_id);
+  }
+  return use;
+}
+
 export function toParticipants(
   rows: { client_id: string; clients: { full_name: string } | null }[],
 ): Participant[] {

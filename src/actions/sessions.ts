@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth";
+import { dbRuleMessage } from "@/lib/db-errors";
 import { createClient } from "@/lib/supabase/server";
+import type { FormState } from "@/actions/auth";
 
 function revalidateAgenda(sessionId?: string) {
   revalidatePath("/agenda");
@@ -43,17 +45,26 @@ export async function setSessionStatusAction(formData: FormData): Promise<void> 
   revalidateAgenda(id);
 }
 
-export async function addParticipantAction(formData: FormData): Promise<void> {
+export async function addParticipantAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
   await requireSession();
   const sessionId = String(formData.get("session_id") ?? "");
   const clientId = String(formData.get("client_id") ?? "");
-  if (!sessionId || !clientId) return;
+  if (!sessionId || !clientId) return { error: "Datos inválidos." };
 
   const supabase = await createClient();
-  await supabase
+  const { error } = await supabase
     .from("session_participants")
     .insert({ session_id: sessionId, client_id: clientId });
+  if (error) {
+    return {
+      error: dbRuleMessage(error.message, "No se pudo agregar al participante."),
+    };
+  }
   revalidateAgenda(sessionId);
+  return {};
 }
 
 export async function removeParticipantAction(formData: FormData): Promise<void> {
