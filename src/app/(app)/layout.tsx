@@ -17,11 +17,13 @@ export default async function AppLayout({
       .select("full_name")
       .eq("id", session.userId)
       .single(),
-    // Avisos de cobro: clientes por vencer (≤ N días) o vencidos.
+    // Avisos de cobro: clientes por vencer (≤ N días) o vencidos que esta
+    // cuenta puede cobrar.
     supabase
-      .from("v_billing_alerts")
+      .from("v_mensualidades")
       .select("client_id", { count: "exact", head: true })
-      .in("alert_level", ["por_vencer", "vencido"]),
+      .in("estado", ["por_vencer", "vencido"])
+      .eq("puede_cobrar", true),
   ]);
 
   return (
@@ -35,7 +37,7 @@ export default async function AppLayout({
             href="/notificaciones"
             aria-label={
               alertCount
-                ? `Notificaciones: ${alertCount} avisos de cobro`
+                ? `Notificaciones: ${alertCount} ${alertCount === 1 ? "aviso" : "avisos"} de cobro`
                 : "Notificaciones"
             }
             className="relative flex h-10 w-10 items-center justify-center rounded-full border border-line bg-white text-ink"

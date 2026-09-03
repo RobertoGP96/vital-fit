@@ -9,19 +9,15 @@ import { createClient } from "@/lib/supabase/server";
 import type { FormState } from "@/actions/auth";
 
 const dateRe = /^\d{4}-\d{2}-\d{2}$/;
-// Los campos condicionales del formulario pueden NO venir en el FormData:
-// tratar ausente y "" como null.
-const dateOrNull = z
-  .string()
-  .optional()
-  .transform((v) => (v?.trim() ? v.trim() : null))
-  .pipe(z.string().regex(dateRe).nullable());
 
-const uuidOrNull = z
+// Cota de fecha de cobro/pago: hoy + 1 día de margen horario (el RPC la
+// re-valida en BD). Evita que un año mal tecleado envenene la cobertura.
+const fechaNoFutura = z
   .string()
-  .optional()
-  .transform((v) => (v ? v : null))
-  .pipe(z.string().uuid().nullable());
+  .regex(dateRe, "Fecha inválida")
+  .refine((d) => d <= format(addDays(new Date(), 1), "yyyy-MM-dd"), {
+    message: "La fecha no puede ser futura.",
+  });
 
 const textOrNull = (max: number) =>
   z
@@ -31,118 +27,99 @@ const textOrNull = (max: number) =>
     .optional()
     .transform((v) => (v ? v : null));
 
-function addDaysISO(iso: string, days: number): string {
-  return format(addDays(new Date(`${iso}T00:00:00`), days), "yyyy-MM-dd");
+function revalidateCobros(clientId: string) {
+  revalidatePath("/pagos");
+  revalidatePath("/notificaciones");
+  revalidatePath(`/clientes/${clientId}/pagos`);
 }
 
-const paymentSchema = z
-  .object({
-    client_id: z.string().uuid("Selecciona un cliente"),
-    concept: z.enum(["mensualidad", "sesion_suelta", "otro"]),
-    membership_id: uuidOrNull,
-    amount: z.coerce.number().positive("Importe inválido"),
-    method: z.enum(["efectivo", "transferencia", "otro"]),
-    status: z.enum(["pagado", "pendiente"]),
-    paid_on: dateOrNull,
-    due_on: dateOrNull,
-    period_start: dateOrNull,
-    period_end: dateOrNull,
-    reference: textOrNull(120),
-    notes: textOrNull(500),
-    renew_membership: z.string().optional(), // "on" = crear el nuevo período
-  })
-  .check((ctx) => {
-    if (ctx.value.status === "pagado" && !ctx.value.paid_on) {
-      ctx.issues.push({
-        code: "custom",
-        message: "Un pago 'pagado' necesita fecha de pago.",
-        input: ctx.value,
-      });
-    }
-  });
+// ── Cobrar mensualidad ──────────────────────────────────────────────────────
+// UNA operación: el RPC cobrar_mensualidad (migraciones 0023/0024) crea el
+// período y el recibo en la misma transacción, derivando fechas del tipo de
+// pago del cliente. La RLS sigue mandando (solo entrenador asignado o admin).
 
-export async function createPaymentAction(
+const cobroSchema = z.object({
+  client_id: z.string().uuid("Selecciona un cliente"),
+  amount: z.coerce.number().positive("Importe inválido"),
+  method: z.enum(["efectivo", "transferencia", "otro"]),
+  paid_on: fechaNoFutura,
+  reference: textOrNull(120),
+  notes: textOrNull(500),
+});
+
+export async function cobrarMensualidadAction(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  await requireSession(); // RLS: entrenador solo para clientes asignados
+  await requireSession();
 
-  const parsed = paymentSchema.safeParse(Object.fromEntries(formData.entries()));
+  const parsed = cobroSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
   }
 
-  const { renew_membership, ...payment } = parsed.data;
+  const d = parsed.data;
   const supabase = await createClient();
-
-  // Mensualidad cobrada con "renovar": crea la membresía del nuevo período según
-  // la configuración de cobro del cliente (tipo de pago + período) y liga el pago.
-  // Así el aviso de vencimiento se apaga en cuanto se registra el cobro.
-  if (
-    payment.concept === "mensualidad" &&
-    renew_membership &&
-    !payment.membership_id &&
-    payment.status === "pagado"
-  ) {
-    const [{ data: cfg }, { data: last }] = await Promise.all([
-      supabase
-        .from("clients")
-        .select("billing_plan_id, billing_period_days, membership_plans(duration_days)")
-        .eq("id", payment.client_id)
-        .single(),
-      supabase
-        .from("client_memberships")
-        .select("ends_on")
-        .eq("client_id", payment.client_id)
-        .in("status", ["activa", "vencida"])
-        .order("ends_on", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-    ]);
-
-    const plan = (cfg?.membership_plans ?? null) as { duration_days: number } | null;
-    const periodDays = cfg?.billing_period_days ?? plan?.duration_days ?? 30;
-    const today = format(new Date(), "yyyy-MM-dd");
-
-    // El nuevo período empieza donde termina el vigente (si aún no venció) o hoy.
-    const startsOn =
-      payment.period_start ??
-      (last?.ends_on && last.ends_on >= today ? addDaysISO(last.ends_on, 1) : today);
-    const endsOn = payment.period_end ?? addDaysISO(startsOn, periodDays - 1);
-
-    const { data: membership, error: mErr } = await supabase
-      .from("client_memberships")
-      .insert({
-        client_id: payment.client_id,
-        plan_id: cfg?.billing_plan_id ?? null,
-        starts_on: startsOn,
-        ends_on: endsOn,
-        price_agreed: payment.amount,
-        status: "activa",
-      })
-      .select("id")
-      .single();
-    if (mErr || !membership) {
-      return { error: "No se pudo crear la membresía del nuevo período." };
-    }
-
-    payment.membership_id = membership.id;
-    payment.period_start = startsOn;
-    payment.period_end = endsOn;
+  const { error } = await supabase.rpc("cobrar_mensualidad", {
+    p_client_id: d.client_id,
+    p_amount: d.amount,
+    p_method: d.method,
+    p_paid_on: d.paid_on,
+    p_reference: d.reference,
+    p_notes: d.notes,
+  });
+  if (error) {
+    console.error("cobrar_mensualidad:", error);
+    // P0001 = raise exception del RPC: mensajes pensados para el usuario
+    // ("Solo el entrenador asignado…", "La fecha de cobro no puede ser futura").
+    return {
+      error:
+        error.code === "P0001" ? error.message : "No se pudo registrar el cobro.",
+    };
   }
 
-  const { error } = await supabase
-    .from("payments")
-    .insert({ ...payment, currency: "CUP" });
-  if (error) return { error: "No se pudo registrar el pago." };
-
-  revalidatePath("/pagos");
-  revalidatePath("/notificaciones");
-  revalidatePath(`/clientes/${payment.client_id}/pagos`);
-  redirect(`/clientes/${payment.client_id}/pagos`);
+  revalidateCobros(d.client_id);
+  redirect(`/clientes/${d.client_id}/pagos`);
 }
 
-/** Marcar pagado: solo admin (la RLS de UPDATE también lo exige). */
+// ── Pago excepcional (sesión suelta / otro) ────────────────────────────────
+// No toca la cobertura de mensualidad: es solo un recibo.
+
+const pagoExtraSchema = z.object({
+  client_id: z.string().uuid("Selecciona un cliente"),
+  concept: z.enum(["sesion_suelta", "otro"]),
+  amount: z.coerce.number().positive("Importe inválido"),
+  method: z.enum(["efectivo", "transferencia", "otro"]),
+  paid_on: fechaNoFutura,
+  reference: textOrNull(120),
+  notes: textOrNull(500),
+});
+
+export async function registrarPagoExtraAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  await requireSession();
+
+  const parsed = pagoExtraSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("payments")
+    .insert({ ...parsed.data, status: "pagado", currency: "CUP" });
+  if (error) {
+    console.error("registrarPagoExtra:", error);
+    return { error: "No se pudo registrar el pago." };
+  }
+
+  revalidateCobros(parsed.data.client_id);
+  redirect(`/clientes/${parsed.data.client_id}/pagos`);
+}
+
+/** Cerrar un pago pendiente/vencido del historial (solo admin, igual que la RLS). */
 export async function markPaymentPaidAction(formData: FormData): Promise<void> {
   await requireAdmin();
   const id = String(formData.get("id") ?? "");
@@ -150,20 +127,29 @@ export async function markPaymentPaidAction(formData: FormData): Promise<void> {
   if (!id) return;
 
   const supabase = await createClient();
-  await supabase
+  const { error } = await supabase
     .from("payments")
     .update({
       status: "pagado",
-      paid_on: new Date().toISOString().slice(0, 10),
+      paid_on: format(new Date(), "yyyy-MM-dd"),
     })
     .eq("id", id);
+  if (error) console.error("markPaymentPaid:", error);
   revalidatePath("/pagos");
   if (clientId) revalidatePath(`/clientes/${clientId}/pagos`);
 }
 
+// ── Ajuste manual del período (solo admin) ─────────────────────────────────
+// Caso correctivo: extender o corregir cobertura sin cobro (p. ej. cliente
+// enfermo). El flujo normal crea los períodos vía cobrar_mensualidad.
+
 const membershipSchema = z.object({
   client_id: z.string().uuid(),
-  plan_id: uuidOrNull,
+  plan_id: z
+    .string()
+    .optional()
+    .transform((v) => (v ? v : null))
+    .pipe(z.string().uuid().nullable()),
   starts_on: z.string().regex(dateRe, "Fecha de inicio inválida"),
   ends_on: z.string().regex(dateRe, "Fecha de fin inválida"),
   price_agreed: z.coerce.number().min(0, "Precio inválido"),
@@ -173,7 +159,7 @@ export async function createMembershipAction(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  await requireSession();
+  await requireAdmin();
 
   const parsed = membershipSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) {
@@ -185,11 +171,10 @@ export async function createMembershipAction(
 
   const supabase = await createClient();
   const { error } = await supabase.from("client_memberships").insert(parsed.data);
-  if (error) return { error: "No se pudo crear la membresía." };
+  if (error) return { error: "No se pudo crear el período." };
 
-  revalidatePath(`/clientes/${parsed.data.client_id}/pagos`);
-  revalidatePath("/notificaciones");
-  return null;
+  revalidateCobros(parsed.data.client_id);
+  return {}; // sin error = guardado (null sería indistinguible del estado inicial)
 }
 
 // ── Configuración de cobro del cliente ──────────────────────────────────────
@@ -203,7 +188,11 @@ const billingSettingsSchema = z.object({
     .string()
     .optional()
     .transform((v) => v === "on" || v === "true"),
-  billing_plan_id: uuidOrNull,
+  billing_plan_id: z
+    .string()
+    .optional()
+    .transform((v) => (v ? v : null))
+    .pipe(z.string().uuid().nullable()),
   billing_period_days: z
     .string()
     .optional()
@@ -230,11 +219,20 @@ export async function updateBillingSettingsAction(
 
   const { client_id, ...settings } = parsed.data;
   const supabase = await createClient();
-  const { error } = await supabase
+  // .select(): si la RLS filtra la fila (staff sin acceso de escritura), el
+  // UPDATE afecta 0 filas SIN error — hay que tratarlo como fallo, no como éxito.
+  const { data, error } = await supabase
     .from("clients")
     .update(settings)
-    .eq("id", client_id);
+    .eq("id", client_id)
+    .select("id");
   if (error) return { error: "No se pudo guardar la configuración de cobro." };
+  if (!data?.length) {
+    return {
+      error:
+        "Solo el entrenador asignado o un admin pueden cambiar la configuración de cobro.",
+    };
+  }
 
   revalidatePath(`/clientes/${client_id}/pagos`);
   revalidatePath("/notificaciones");

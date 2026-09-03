@@ -7,7 +7,7 @@ import {
   UserCog,
   Users,
 } from "lucide-react";
-import { format, startOfWeek, addDays, startOfMonth } from "date-fns";
+import { format, startOfWeek, addDays, addMonths, startOfMonth } from "date-fns";
 import { createClient } from "@/lib/supabase/server";
 import { formatCup } from "@/lib/format";
 
@@ -19,6 +19,7 @@ export default async function AdminOverviewPage() {
   const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd");
   const weekEnd = format(addDays(startOfWeek(new Date(), { weekStartsOn: 1 }), 6), "yyyy-MM-dd");
   const monthStart = format(startOfMonth(new Date()), "yyyy-MM-dd");
+  const monthEnd = format(startOfMonth(addMonths(new Date(), 1)), "yyyy-MM-dd");
 
   const [clientsRes, trainersRes, sessionsRes, paymentsRes, overdueRes] =
     await Promise.all([
@@ -41,11 +42,13 @@ export default async function AdminOverviewPage() {
         .from("payments")
         .select("amount")
         .eq("status", "pagado")
-        .gte("paid_on", monthStart),
+        .gte("paid_on", monthStart)
+        .lt("paid_on", monthEnd),
+      // Mismo criterio que la campana y /pagos: estado de la vista única.
       supabase
-        .from("payments")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "vencido"),
+        .from("v_mensualidades")
+        .select("client_id", { count: "exact", head: true })
+        .eq("estado", "vencido"),
     ]);
 
   const collected = (paymentsRes.data ?? []).reduce(
@@ -61,7 +64,7 @@ export default async function AdminOverviewPage() {
         <Card label="Clientes activos" value={String(clientsRes.count ?? 0)} />
         <Card label="Entrenadores" value={String(trainersRes.count ?? 0)} />
         <Card label="Sesiones esta semana" value={String(sessionsRes.count ?? 0)} />
-        <Card label="Pagos vencidos" value={String(overdueRes.count ?? 0)} alert={(overdueRes.count ?? 0) > 0} />
+        <Card label="Clientes vencidos" value={String(overdueRes.count ?? 0)} alert={(overdueRes.count ?? 0) > 0} />
       </section>
 
       <section className="rounded-(--radius-card) bg-ink p-5 text-cream">

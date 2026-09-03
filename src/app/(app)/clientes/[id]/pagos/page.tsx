@@ -1,63 +1,21 @@
 import Link from "next/link";
-import { Button, Card, Chip, buttonVariants } from "@heroui/react";
-import { PauseCircle, Plus, Settings2 } from "lucide-react";
+import { Button, Card, buttonVariants } from "@heroui/react";
+import { HandCoins, Settings2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { markPaymentPaidAction } from "@/actions/payments";
 import { getSessionInfo } from "@/lib/auth";
+import { EstadoMensualidadChip } from "@/components/estado-mensualidad-chip";
 import { PaymentStatusChip } from "@/components/payment-status-chip";
 import { MembershipForm } from "@/components/membership-form";
 import { BillingSettingsForm } from "@/components/billing-settings-form";
-import { formatCup, formatShortDate, todayISO } from "@/lib/format";
+import { formatCup, formatShortDate } from "@/lib/format";
+import type { MensualidadRow } from "@/lib/mensualidades";
 
 const CONCEPT_LABEL: Record<string, string> = {
   mensualidad: "Mensualidad",
   sesion_suelta: "Sesión suelta",
   otro: "Otro",
 };
-
-function BillingStateChip({
-  enabled,
-  endsOn,
-  reminderDays,
-}: {
-  enabled: boolean;
-  endsOn: string | null;
-  reminderDays: number;
-}) {
-  if (!enabled) {
-    return (
-      <Chip color="warning" variant="soft" size="sm" className="gap-1">
-        <PauseCircle size={13} /> Cobro pausado
-      </Chip>
-    );
-  }
-  if (!endsOn) return null;
-  const today = todayISO();
-  const daysLeft = Math.round(
-    (new Date(`${endsOn}T00:00:00`).getTime() -
-      new Date(`${today}T00:00:00`).getTime()) /
-      86_400_000,
-  );
-  if (daysLeft < 0) {
-    return (
-      <Chip color="danger" variant="soft" size="sm">
-        Venció hace {-daysLeft} {daysLeft === -1 ? "día" : "días"}
-      </Chip>
-    );
-  }
-  if (daysLeft <= reminderDays) {
-    return (
-      <Chip color="warning" variant="soft" size="sm">
-        Vence en {daysLeft} {daysLeft === 1 ? "día" : "días"}
-      </Chip>
-    );
-  }
-  return (
-    <Chip color="success" variant="soft" size="sm">
-      Al día
-    </Chip>
-  );
-}
 
 export default async function PagosClientePage(props: {
   params: Promise<{ id: string }>;
@@ -69,24 +27,19 @@ export default async function PagosClientePage(props: {
   const supabase = await createClient();
 
   const [
+    { data: mensualidadData },
     { data: clientRow },
-    { data: memberships },
     { data: payments },
     { data: plans },
   ] = await Promise.all([
+    supabase.from("v_mensualidades").select("*").eq("client_id", id).maybeSingle(),
     supabase
       .from("clients")
       .select(
-        "billing_enabled, billing_plan_id, billing_period_days, billing_reminder_days",
+        "is_active, billing_enabled, billing_plan_id, billing_period_days, billing_reminder_days",
       )
       .eq("id", id)
       .single(),
-    supabase
-      .from("client_memberships")
-      .select("id, starts_on, ends_on, price_agreed, status, membership_plans(name)")
-      .eq("client_id", id)
-      .order("ends_on", { ascending: false })
-      .limit(10),
     supabase
       .from("payments")
       .select(
@@ -102,7 +55,9 @@ export default async function PagosClientePage(props: {
       .order("name"),
   ]);
 
-  const current = memberships?.[0];
+  const m = mensualidadData as MensualidadRow | null;
+  const inactivo = clientRow?.is_active === false;
+  const puedeCobrar = m?.puede_cobrar ?? false;
   const billing = {
     billing_enabled: clientRow?.billing_enabled ?? true,
     billing_plan_id: clientRow?.billing_plan_id ?? null,
@@ -123,76 +78,99 @@ export default async function PagosClientePage(props: {
         </div>
       )}
 
-      <Link
-        href={`/pagos/nuevo?cliente=${id}`}
-        className={buttonVariants({
-          variant: "primary",
-          size: "lg",
-          fullWidth: true,
-          className: "gap-2 rounded-full font-semibold",
-        })}
-      >
-        <Plus size={18} strokeWidth={2.5} />
-        Registrar pago
-      </Link>
-
+      {/* Una sola card: estado, tipo de pago y cobro en el mismo sitio */}
       <Card className="rounded-(--radius-card) border-line bg-white p-4">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="font-bold">Configuración de cobro</h2>
-          <BillingStateChip
-            enabled={billing.billing_enabled}
-            endsOn={current?.ends_on ?? null}
-            reminderDays={billing.billing_reminder_days}
-          />
+          <h2 className="font-bold">Mensualidad</h2>
+          {m && <EstadoMensualidadChip estado={m.estado} dias={m.dias} />}
         </div>
-        <details className="mt-2" open={justCreated || !billing.billing_enabled}>
-          <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-semibold text-brand-600">
-            <Settings2 size={15} />
-            Tipo de pago, período y avisos
-          </summary>
-          <div className="mt-3">
-            <BillingSettingsForm
-              clientId={id}
-              plans={plans ?? []}
-              settings={billing}
-            />
-          </div>
-        </details>
-      </Card>
 
-      <Card className="rounded-(--radius-card) border-line bg-white p-4">
-        <h2 className="mb-2 font-bold">Membresía</h2>
-        {current ? (
-          <p className="text-sm">
-            {(current.membership_plans as unknown as { name: string } | null)
-              ?.name ?? "Personalizada"}{" "}
-            · vence <b>{formatShortDate(current.ends_on)}</b> ·{" "}
-            {formatCup(current.price_agreed)}{" "}
-            <Chip size="sm" variant="soft" className="ml-1">
-              {current.status}
-            </Chip>
+        {inactivo ? (
+          <p className="mt-2 text-sm text-muted">
+            Cliente inactivo: su cobro no se gestiona. El historial queda abajo
+            como referencia.
           </p>
         ) : (
-          <p className="text-sm text-muted">
-            Sin membresía registrada. Se creará sola al registrar el primer pago
-            de mensualidad, o créala aquí manualmente.
-          </p>
+          <>
+            <p className="mt-2 text-sm">
+              {m?.cubierto_hasta ? (
+                <>
+                  Cubierto hasta <b>{formatShortDate(m.cubierto_hasta)}</b>
+                </>
+              ) : (
+                <span className="text-muted">
+                  Sin períodos registrados: se crea solo con el primer cobro.
+                </span>
+              )}
+            </p>
+            <p className="text-xs text-muted">
+              {m?.plan_name ?? "Personalizado"}
+              {m?.precio != null ? ` · ${formatCup(Number(m.precio))}` : ""}
+              {m?.periodo_dias ? ` cada ${m.periodo_dias} días` : ""}
+            </p>
+
+            {puedeCobrar ? (
+              <Link
+                href={`/pagos/nuevo?cliente=${id}`}
+                className={buttonVariants({
+                  variant: "primary",
+                  size: "lg",
+                  fullWidth: true,
+                  className: "mt-3 gap-2 rounded-full font-semibold",
+                })}
+              >
+                <HandCoins size={18} strokeWidth={2.5} />
+                Cobrar mensualidad
+              </Link>
+            ) : (
+              <p className="mt-3 text-xs text-muted">
+                Solo el entrenador asignado o un admin pueden cobrar y cambiar
+                la configuración de este cliente.
+              </p>
+            )}
+
+            {puedeCobrar && (
+              <details
+                className="mt-3"
+                open={justCreated || !billing.billing_enabled}
+              >
+                <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-semibold text-brand-600">
+                  <Settings2 size={15} />
+                  Tipo de pago, período y avisos
+                </summary>
+                <div className="mt-3">
+                  <BillingSettingsForm
+                    clientId={id}
+                    plans={plans ?? []}
+                    settings={billing}
+                  />
+                </div>
+              </details>
+            )}
+          </>
         )}
-        <details className="mt-3">
-          <summary className="cursor-pointer text-sm font-semibold text-brand-600">
-            Nueva membresía
-          </summary>
-          <div className="mt-3">
-            <MembershipForm clientId={id} plans={plans ?? []} />
-          </div>
-        </details>
+
+        {session?.role === "admin" && (
+          <details className="mt-3">
+            <summary className="cursor-pointer text-sm font-semibold text-brand-600">
+              Ajuste manual del período (admin)
+            </summary>
+            <p className="mt-1 text-xs text-muted">
+              Para corregir o extender la cobertura sin registrar un cobro
+              (p. ej. cliente enfermo). El flujo normal es el botón de cobrar.
+            </p>
+            <div className="mt-3">
+              <MembershipForm clientId={id} plans={plans ?? []} />
+            </div>
+          </details>
+        )}
       </Card>
 
       <section>
-        <h2 className="mb-2 font-bold">Pagos</h2>
+        <h2 className="mb-2 font-bold">Historial de cobros</h2>
         {!payments || payments.length === 0 ? (
           <p className="rounded-(--radius-card) border border-dashed border-line bg-white p-6 text-center text-sm text-muted">
-            Sin pagos registrados.
+            Sin cobros registrados.
           </p>
         ) : (
           <ul className="flex flex-col gap-2">
@@ -219,7 +197,7 @@ export default async function PagosClientePage(props: {
                       : ""}
                   </p>
                 </div>
-                <PaymentStatusChip status={p.status} />
+                {p.status !== "pagado" && <PaymentStatusChip status={p.status} />}
                 {session?.role === "admin" && p.status !== "pagado" && (
                   <form action={markPaymentPaidAction}>
                     <input type="hidden" name="id" value={p.id} />

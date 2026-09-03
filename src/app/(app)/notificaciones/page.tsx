@@ -6,40 +6,34 @@ import { requireSession } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Avatar } from "@/components/avatar";
 import { formatShortDate } from "@/lib/format";
+import { ordenarPorUrgencia, type MensualidadRow } from "@/lib/mensualidades";
 
 export const metadata: Metadata = { title: "Notificaciones" };
-
-type AlertRow = {
-  client_id: string;
-  full_name: string;
-  plan_name: string | null;
-  billing_plan_id: string | null;
-  due_on: string | null;
-  days_left: number | null;
-  alert_level: "vencido" | "por_vencer" | "sin_membresia" | "al_dia";
-};
 
 export default async function NotificacionesPage() {
   await requireSession();
   const supabase = await createClient();
 
+  // Avisos solo de clientes que esta cuenta puede cobrar (entrenador asignado
+  // o admin): quien no puede actuar no recibe la alerta.
   const { data } = await supabase
-    .from("v_billing_alerts")
-    .select(
-      "client_id, full_name, plan_name, billing_plan_id, due_on, days_left, alert_level",
-    )
-    .neq("alert_level", "al_dia")
-    .order("days_left", { ascending: true });
+    .from("v_mensualidades")
+    .select("*")
+    .in("estado", ["vencido", "por_vencer", "sin_mensualidad"])
+    .eq("puede_cobrar", true);
 
-  const rows = (data ?? []) as AlertRow[];
-  const vencidos = rows.filter((r) => r.alert_level === "vencido");
-  const porVencer = rows.filter((r) => r.alert_level === "por_vencer");
-  // Solo avisa de "sin membresía" cuando ya se configuró un tipo de pago:
-  // el resto son clientes cuyo cobro aún no se gestiona en la app.
-  const sinMembresia = rows.filter(
-    (r) => r.alert_level === "sin_membresia" && r.billing_plan_id,
+  const rows = ordenarPorUrgencia((data ?? []) as MensualidadRow[]);
+  const vencidos = rows.filter((r) => r.estado === "vencido");
+  const porVencer = rows.filter((r) => r.estado === "por_vencer");
+  // Solo avisa de "sin mensualidad" cuando ya se configuró un tipo de pago
+  // (plan O período personalizado): el resto son clientes cuyo cobro aún no se
+  // gestiona en la app.
+  const sinMensualidad = rows.filter(
+    (r) =>
+      r.estado === "sin_mensualidad" &&
+      (r.billing_plan_id || r.periodo_dias != null),
   );
-  const total = vencidos.length + porVencer.length + sinMembresia.length;
+  const total = vencidos.length + porVencer.length + sinMensualidad.length;
 
   return (
     <div className="flex flex-col gap-5">
@@ -72,8 +66,8 @@ export default async function NotificacionesPage() {
                   key={r.client_id}
                   row={r}
                   tone="danger"
-                  detail={`Venció el ${formatShortDate(r.due_on!)} · hace ${-r.days_left!} ${
-                    r.days_left === -1 ? "día" : "días"
+                  detail={`Venció el ${formatShortDate(r.cubierto_hasta!)} · hace ${-r.dias!} ${
+                    r.dias === -1 ? "día" : "días"
                   }`}
                 />
               ))}
@@ -91,10 +85,10 @@ export default async function NotificacionesPage() {
                   row={r}
                   tone="warning"
                   detail={
-                    r.days_left === 0
+                    r.dias === 0
                       ? "Vence hoy"
-                      : `Vence el ${formatShortDate(r.due_on!)} · en ${r.days_left} ${
-                          r.days_left === 1 ? "día" : "días"
+                      : `Vence el ${formatShortDate(r.cubierto_hasta!)} · en ${r.dias} ${
+                          r.dias === 1 ? "día" : "días"
                         }`
                   }
                 />
@@ -102,17 +96,17 @@ export default async function NotificacionesPage() {
             </AlertSection>
           )}
 
-          {sinMembresia.length > 0 && (
+          {sinMensualidad.length > 0 && (
             <AlertSection
               icon={<CreditCard size={16} className="text-muted" />}
-              title={`Sin membresía activa (${sinMembresia.length})`}
+              title={`Sin mensualidad (${sinMensualidad.length})`}
             >
-              {sinMembresia.map((r) => (
+              {sinMensualidad.map((r) => (
                 <AlertItem
                   key={r.client_id}
                   row={r}
                   tone="muted"
-                  detail="Tiene tipo de pago configurado, pero ninguna membresía. Registra su primer pago."
+                  detail="Tiene tipo de pago configurado, pero ningún período. Registra su primer cobro."
                 />
               ))}
             </AlertSection>
@@ -154,7 +148,7 @@ function AlertItem({
   tone,
   detail,
 }: {
-  row: AlertRow;
+  row: MensualidadRow;
   tone: "danger" | "warning" | "muted";
   detail: string;
 }) {

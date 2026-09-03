@@ -10,6 +10,7 @@ import {
   TextField,
 } from "@heroui/react";
 import { useActionState, useEffect, useRef, useState } from "react";
+import { addDays, format } from "date-fns";
 import { createMembershipAction } from "@/actions/payments";
 import { todayISO } from "@/lib/format";
 
@@ -25,19 +26,32 @@ export function MembershipForm({
   const [state, formAction, pending] = useActionState(createMembershipAction, null);
   const formRef = useRef<HTMLFormElement>(null);
   const [price, setPrice] = useState<number | null>(null);
+  const [starts, setStarts] = useState<string>(todayISO());
   const [ends, setEnds] = useState<string>("");
 
+  // Éxito = {} (objeto nuevo en cada envío, dispara el efecto). Los campos
+  // controlados no los limpia form.reset(): se resetean explícitamente.
   useEffect(() => {
-    if (state === null) formRef.current?.reset();
+    if (state && !state.error) {
+      formRef.current?.reset();
+      setPrice(null);
+      setStarts(todayISO());
+      setEnds("");
+    }
   }, [state]);
 
   function applyPlan(planId: string) {
     const plan = plans.find((p) => p.id === planId);
     if (!plan) return;
     setPrice(plan.price);
-    const d = new Date();
-    d.setDate(d.getDate() + plan.duration_days);
-    setEnds(d.toISOString().slice(0, 10));
+    // Mismo criterio que cobrar_mensualidad: el período cubre N días contando
+    // el de inicio.
+    setEnds(
+      format(
+        addDays(new Date(`${starts}T00:00:00`), plan.duration_days - 1),
+        "yyyy-MM-dd",
+      ),
+    );
   }
 
   return (
@@ -81,7 +95,8 @@ export function MembershipForm({
           type="date"
           isRequired
           fullWidth
-          defaultValue={todayISO()}
+          value={starts}
+          onChange={setStarts}
         >
           <Label>Inicio</Label>
           <Input />
@@ -120,6 +135,11 @@ export function MembershipForm({
           {state.error}
         </p>
       )}
+      {state && !state.error && (
+        <p role="status" className="text-sm font-medium text-brand-600">
+          Período guardado.
+        </p>
+      )}
 
       <Button
         type="submit"
@@ -128,7 +148,7 @@ export function MembershipForm({
         isPending={pending}
         className="rounded-full font-semibold"
       >
-        {pending ? "Guardando…" : "Crear membresía"}
+        {pending ? "Guardando…" : "Guardar período"}
       </Button>
     </form>
   );

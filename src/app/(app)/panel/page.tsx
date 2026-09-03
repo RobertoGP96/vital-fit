@@ -66,9 +66,10 @@ export default async function PanelPage() {
         .order("full_name")
         .limit(5),
       supabase
-        .from("v_billing_alerts")
+        .from("v_mensualidades")
         .select("client_id", { count: "exact", head: true })
-        .in("alert_level", ["por_vencer", "vencido"]),
+        .in("estado", ["por_vencer", "vencido"])
+        .eq("puede_cobrar", true),
     ]);
 
   const firstName = (profile?.full_name ?? "").split(" ")[0] || "Entrenador";
