@@ -23,8 +23,6 @@ const FILTERS: { v: "" | EstadoMensualidad; l: string }[] = [
   { v: "vencido", l: "Vencidos" },
   { v: "por_vencer", l: "Por vencer" },
   { v: "al_dia", l: "Al día" },
-  { v: "sin_mensualidad", l: "Sin mensualidad" },
-  { v: "pausado", l: "Pausados" },
 ];
 
 type ReciboRow = {
