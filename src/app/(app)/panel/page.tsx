@@ -1,13 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Button, Chip, SearchField } from "@heroui/react";
+import { Chip } from "@heroui/react";
 import {
   BellRing,
   CalendarDays,
   Check,
   ChevronRight,
   CreditCard,
-  ListFilter,
   Users,
 } from "lucide-react";
 import { requireSession } from "@/lib/auth";
@@ -109,25 +108,6 @@ export default async function PanelPage() {
           <ChevronRight size={16} className="shrink-0 text-muted" />
         </Link>
       )}
-
-      {/* Buscador (lleva a clientes con el término) */}
-      <form action="/clientes" method="get" role="search" className="flex gap-2.5">
-        <SearchField name="q" aria-label="Buscar clientes" className="flex-1">
-          <SearchField.Group className="rounded-full">
-            <SearchField.SearchIcon />
-            <SearchField.Input placeholder="Buscar clientes…" />
-            <SearchField.ClearButton />
-          </SearchField.Group>
-        </SearchField>
-        <Button
-          type="submit"
-          isIconOnly
-          aria-label="Buscar"
-          className="h-11 w-11 shrink-0 rounded-2xl"
-        >
-          <ListFilter size={18} />
-        </Button>
-      </form>
 
       {/* Hero */}
       <section
