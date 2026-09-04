@@ -255,7 +255,7 @@ function SessionTodayCard({ entry: e }: { entry: DayEntry }) {
           size="sm"
           className="absolute left-2 top-2 border-transparent bg-white/85 text-[10.5px] font-extrabold text-ink/80"
         >
-          {n > 1 ? `Grupal · ${n}` : "Sesión"}
+          Sesión
         </Chip>
       </div>
 
