@@ -80,7 +80,6 @@ export function PhotoUploader({ clientId }: { clientId: string }) {
         ref={inputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         hidden
         onChange={(e) => {
           const f = e.target.files?.[0];
