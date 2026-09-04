@@ -72,13 +72,13 @@ export default async function PagosClientePage(props: {
         <div className="rounded-(--radius-card) border border-brand/30 bg-brand/10 p-3.5 text-sm">
           <p className="font-bold text-brand-600">Cliente registrado ✓</p>
           <p className="mt-0.5 text-muted">
-            Configura ahora su tipo de pago para que el sistema avise cuando
-            toque la mensualidad.
+            Elige ahora su servicio para fijar la tarifa y que el sistema avise
+            cuando toque la mensualidad.
           </p>
         </div>
       )}
 
-      {/* Una sola card: estado, tipo de pago y cobro en el mismo sitio */}
+      {/* Una sola card: estado, servicio y cobro en el mismo sitio */}
       <Card className="rounded-(--radius-card) border-line bg-white p-4">
         <div className="flex items-center justify-between gap-2">
           <h2 className="font-bold">Mensualidad</h2>
@@ -136,7 +136,7 @@ export default async function PagosClientePage(props: {
               >
                 <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-semibold text-brand-600">
                   <Settings2 size={15} />
-                  Tipo de pago, período y avisos
+                  Servicio, tarifa y avisos
                 </summary>
                 <div className="mt-3">
                   <BillingSettingsForm

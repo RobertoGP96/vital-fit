@@ -60,7 +60,7 @@ function SubmitButton({ pending, isNew }: { pending: boolean; isNew: boolean }) 
   );
 }
 
-/* ── Planes de membresía ─────────────────────────────────────────────── */
+/* ── Servicios y tarifas (membership_plans) ──────────────────────────── */
 
 export type PlanRow = {
   id: string;
@@ -98,7 +98,7 @@ export function PlanForm({ plan }: { plan?: PlanRow }) {
           formatOptions={{ maximumFractionDigits: 2, useGrouping: false }}
           defaultValue={plan?.price}
         >
-          <Label>Precio (CUP) *</Label>
+          <Label>Tarifa (CUP) *</Label>
           <NumberField.Group>
             <NumberField.Input inputMode="decimal" />
           </NumberField.Group>

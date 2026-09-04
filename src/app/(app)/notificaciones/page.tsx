@@ -25,8 +25,8 @@ export default async function NotificacionesPage() {
   const rows = ordenarPorUrgencia((data ?? []) as MensualidadRow[]);
   const vencidos = rows.filter((r) => r.estado === "vencido");
   const porVencer = rows.filter((r) => r.estado === "por_vencer");
-  // Solo avisa de "sin mensualidad" cuando ya se configuró un tipo de pago
-  // (plan O período personalizado): el resto son clientes cuyo cobro aún no se
+  // Solo avisa de "sin mensualidad" cuando ya se configuró un servicio
+  // (o un período personalizado): el resto son clientes cuyo cobro aún no se
   // gestiona en la app.
   const sinMensualidad = rows.filter(
     (r) =>
@@ -106,7 +106,7 @@ export default async function NotificacionesPage() {
                   key={r.client_id}
                   row={r}
                   tone="muted"
-                  detail="Tiene tipo de pago configurado, pero ningún período. Registra su primer cobro."
+                  detail="Tiene servicio configurado, pero ningún período. Registra su primer cobro."
                 />
               ))}
             </AlertSection>

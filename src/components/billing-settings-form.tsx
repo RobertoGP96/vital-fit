@@ -68,7 +68,7 @@ export function BillingSettingsForm({
         selectedKey={planId}
         onSelectionChange={(k) => setPlanId(String(k ?? ""))}
       >
-        <Label>Tipo de pago</Label>
+        <Label>Servicio</Label>
         <Select.Trigger>
           <Select.Value />
           <Select.Indicator />
@@ -128,8 +128,10 @@ export function BillingSettingsForm({
       </div>
 
       <p className="text-xs text-muted">
-        Período vacío = se usa la duración del plan elegido. El aviso aparece en
-        la campana cuando falten esos días para el vencimiento.
+        Al cobrar se aplica la tarifa del servicio elegido; con
+        &ldquo;Personalizado&rdquo; el importe se teclea en cada cobro. Período
+        vacío = se usa la duración del servicio. El aviso aparece en la campana
+        cuando falten esos días para el vencimiento.
       </p>
 
       {state?.error && (

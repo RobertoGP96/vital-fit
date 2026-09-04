@@ -79,7 +79,7 @@ export default async function AdminOverviewPage() {
         <AdminLink href="/gestion/asignaciones" label="Asignaciones de clientes">
           <Users size={20} />
         </AdminLink>
-        <AdminLink href="/admin/planes" label="Planes de membresía">
+        <AdminLink href="/gestion/servicios" label="Servicios y tarifas">
           <CreditCard size={20} />
         </AdminLink>
         <AdminLink href="/admin/tipos-medida" label="Tipos de medida">

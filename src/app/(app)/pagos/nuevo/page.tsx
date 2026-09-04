@@ -62,6 +62,7 @@ export default async function CobrarPage(props: {
                 periodoDias={m.periodo_dias}
                 planName={m.plan_name}
                 cubiertoHasta={m.cubierto_hasta}
+                importeEditable={m.importe_editable}
               />
 
               <details className="rounded-(--radius-card) border border-line bg-white p-4">

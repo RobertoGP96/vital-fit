@@ -20,6 +20,9 @@ export type MensualidadRow = {
   dias: number | null; // negativo = venció hace N días
   estado: EstadoMensualidad;
   puede_cobrar: boolean; // has_client_access: entrenador asignado o admin
+  // false = la tarifa del servicio es fija para quien cobra (entrenador);
+  // coordinador/admin —o cliente sin servicio con tarifa— pueden teclearla.
+  importe_editable: boolean;
 };
 
 /** Orden de urgencia para listados: primero lo que requiere acción. */

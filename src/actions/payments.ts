@@ -34,13 +34,20 @@ function revalidateCobros(clientId: string) {
 }
 
 // ── Cobrar mensualidad ──────────────────────────────────────────────────────
-// UNA operación: el RPC cobrar_mensualidad (migraciones 0023/0024) crea el
-// período y el recibo en la misma transacción, derivando fechas del tipo de
-// pago del cliente. La RLS sigue mandando (solo entrenador asignado o admin).
+// UNA operación: el RPC cobrar_mensualidad (migraciones 0023/0024/0027) crea
+// el período y el recibo en la misma transacción, derivando fechas E IMPORTE
+// del servicio del cliente. Sin importe (el formulario no lo ofrece cuando la
+// tarifa es fija) el RPC cobra la tarifa; un importe distinto de la tarifa
+// solo lo acepta a coordinador/admin. La RLS sigue mandando (solo entrenador
+// asignado o admin cobran).
 
 const cobroSchema = z.object({
   client_id: z.string().uuid("Selecciona un cliente"),
-  amount: z.coerce.number().positive("Importe inválido"),
+  // Ausente o vacío = cobrar la tarifa del servicio (la valida el RPC).
+  amount: z.preprocess(
+    (v) => (v == null || String(v).trim() === "" ? null : Number(v)),
+    z.number().positive("Importe inválido").nullable(),
+  ),
   method: z.enum(["efectivo", "transferencia", "otro"]),
   paid_on: fechaNoFutura,
   reference: textOrNull(120),

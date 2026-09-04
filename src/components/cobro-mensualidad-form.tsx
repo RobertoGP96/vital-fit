@@ -13,16 +13,18 @@ import {
 import { useActionState, useState } from "react";
 import { addDays, format } from "date-fns";
 import { cobrarMensualidadAction } from "@/actions/payments";
-import { formatShortDate, todayISO } from "@/lib/format";
+import { formatCup, formatShortDate, todayISO } from "@/lib/format";
 
 function addDaysISO(iso: string, days: number): string {
   return format(addDays(new Date(`${iso}T00:00:00`), days), "yyyy-MM-dd");
 }
 
 /**
- * Cobro rápido de mensualidad: importe precargado del tipo de pago del
- * cliente, método y fecha. El servidor (RPC cobrar_mensualidad) crea el
- * período y el recibo juntos; aquí solo se anticipa qué cubrirá.
+ * Cobro rápido de mensualidad: la tarifa la determina el servicio del
+ * cliente. Si quien cobra no puede apartarse de ella (entrenador con cliente
+ * de servicio con tarifa) el importe ni se envía: el RPC cobra la tarifa.
+ * El servidor (cobrar_mensualidad) crea el período y el recibo juntos; aquí
+ * solo se anticipa qué cubrirá.
  */
 export function CobroMensualidadForm({
   clientId,
@@ -30,12 +32,14 @@ export function CobroMensualidadForm({
   periodoDias,
   planName,
   cubiertoHasta,
+  importeEditable,
 }: {
   clientId: string;
   precio: number | null;
   periodoDias: number | null;
   planName: string | null;
   cubiertoHasta: string | null;
+  importeEditable: boolean;
 }) {
   const [state, formAction, pending] = useActionState(
     cobrarMensualidadAction,
@@ -58,20 +62,30 @@ export function CobroMensualidadForm({
       <input type="hidden" name="client_id" value={clientId} />
 
       <div className="grid grid-cols-2 gap-3">
-        <NumberField
-          name="amount"
-          isRequired
-          fullWidth
-          minValue={0.01}
-          step={0.01}
-          formatOptions={{ maximumFractionDigits: 2, useGrouping: false }}
-          defaultValue={precio ?? NaN}
-        >
-          <Label>Importe (CUP) *</Label>
-          <NumberField.Group>
-            <NumberField.Input inputMode="decimal" />
-          </NumberField.Group>
-        </NumberField>
+        {importeEditable ? (
+          <NumberField
+            name="amount"
+            isRequired
+            fullWidth
+            minValue={0.01}
+            step={0.01}
+            formatOptions={{ maximumFractionDigits: 2, useGrouping: false }}
+            defaultValue={precio ?? NaN}
+          >
+            <Label>Importe (CUP) *</Label>
+            <NumberField.Group>
+              <NumberField.Input inputMode="decimal" />
+            </NumberField.Group>
+          </NumberField>
+        ) : (
+          // Tarifa fija del servicio: no viaja en el form, la aplica el RPC.
+          <div className="flex flex-col gap-1.5">
+            <span className="text-sm font-medium">Tarifa del servicio</span>
+            <p className="flex h-11 items-center rounded-xl border border-line bg-cream px-3 font-semibold">
+              {precio != null ? formatCup(precio) : "—"}
+            </p>
+          </div>
+        )}
 
         <TextField
           name="paid_on"
@@ -127,6 +141,13 @@ export function CobroMensualidadForm({
           Cubrirá <b>{dias} días</b>: del <b>{formatShortDate(desde)}</b> al{" "}
           <b>{formatShortDate(hasta)}</b>
           {planName ? ` · ${planName}` : ""}
+        </p>
+      )}
+
+      {!importeEditable && (
+        <p className="text-xs text-muted">
+          La tarifa la determina el servicio del cliente. Si acordaron otro
+          importe, debe cobrarlo un coordinador o admin.
         </p>
       )}
 

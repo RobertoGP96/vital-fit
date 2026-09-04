@@ -2,11 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin, requireCoordinatorOrAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { FormState } from "@/actions/auth";
 
-// Gestión de catálogos (solo admin; la RLS de escritura es la segunda capa).
+// Gestión de catálogos (la RLS de escritura es la segunda capa). Los servicios
+// y tarifas los gestiona también el coordinador (organiza la oferta del
+// gimnasio); el resto de catálogos sigue siendo solo admin.
 // Nunca se borra: desactivar preserva el histórico que referencia cada fila.
 
 const emptyToNull = (v: string) => (v.trim() === "" ? null : v.trim());
@@ -17,12 +19,13 @@ function friendlyDbError(code: string | undefined, entity: string): string {
   return "No se pudo guardar. Inténtalo de nuevo.";
 }
 
-/* ── Planes de membresía ─────────────────────────────────────────────── */
+/* ── Servicios y tarifas (membership_plans) ──────────────────────────── */
+// Los configura el coordinador o el admin (migración 0027).
 
 const planSchema = z.object({
   name: z.string().trim().min(2, "Nombre demasiado corto").max(80),
   description: z.string().max(300).transform(emptyToNull),
-  price: z.coerce.number().min(0, "Precio inválido"),
+  price: z.coerce.number().min(0, "Tarifa inválida"),
   duration_days: z.coerce.number().int().positive("Duración inválida"),
   sessions_included: z.preprocess(
     (v) => (v == null || String(v).trim() === "" ? null : Number(v)),
@@ -34,7 +37,7 @@ export async function createPlanAction(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  await requireAdmin();
+  await requireCoordinatorOrAdmin();
   const parsed = planSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
@@ -44,9 +47,9 @@ export async function createPlanAction(
   const { error } = await supabase
     .from("membership_plans")
     .insert({ ...parsed.data, currency: "CUP" });
-  if (error) return { error: friendlyDbError(error.code, "un plan") };
+  if (error) return { error: friendlyDbError(error.code, "un servicio") };
 
-  revalidatePath("/admin/planes");
+  revalidatePath("/gestion/servicios");
   return null;
 }
 
@@ -54,9 +57,9 @@ export async function updatePlanAction(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  await requireAdmin();
+  await requireCoordinatorOrAdmin();
   const id = String(formData.get("id") ?? "");
-  if (!id) return { error: "Plan inválido." };
+  if (!id) return { error: "Servicio inválido." };
 
   const parsed = planSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) {
@@ -68,14 +71,14 @@ export async function updatePlanAction(
     .from("membership_plans")
     .update(parsed.data)
     .eq("id", id);
-  if (error) return { error: friendlyDbError(error.code, "un plan") };
+  if (error) return { error: friendlyDbError(error.code, "un servicio") };
 
-  revalidatePath("/admin/planes");
+  revalidatePath("/gestion/servicios");
   return null;
 }
 
 export async function togglePlanActiveAction(formData: FormData): Promise<void> {
-  await requireAdmin();
+  await requireCoordinatorOrAdmin();
   const id = String(formData.get("id") ?? "");
   const isActive = String(formData.get("is_active")) === "true";
   if (!id) return;
@@ -85,7 +88,7 @@ export async function togglePlanActiveAction(formData: FormData): Promise<void> 
     .from("membership_plans")
     .update({ is_active: !isActive })
     .eq("id", id);
-  revalidatePath("/admin/planes");
+  revalidatePath("/gestion/servicios");
 }
 
 /* ── Tipos de sesión ─────────────────────────────────────────────────── */

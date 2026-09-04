@@ -1,7 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@heroui/react";
-import { ChevronRight, LogOut, ShieldCheck, UserCog } from "lucide-react";
+import {
+  ChevronRight,
+  CreditCard,
+  LogOut,
+  ShieldCheck,
+  UserCog,
+} from "lucide-react";
 import { requireSession } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { logout } from "@/actions/auth";
@@ -45,6 +51,11 @@ export default async function MasPage() {
         {canManage && (
           <MenuLink href="/gestion/asignaciones" label="Asignaciones de clientes">
             <UserCog size={20} />
+          </MenuLink>
+        )}
+        {canManage && (
+          <MenuLink href="/gestion/servicios" label="Servicios y tarifas">
+            <CreditCard size={20} />
           </MenuLink>
         )}
         {session.role === "admin" && (
