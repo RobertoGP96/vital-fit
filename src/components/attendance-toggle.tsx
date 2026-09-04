@@ -3,7 +3,6 @@
 import { Button } from "@heroui/react";
 import { Check, X } from "lucide-react";
 import { useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { setAttendanceAction } from "@/actions/sessions";
 
 /**
@@ -21,16 +20,16 @@ export function AttendanceToggle({
   attended: boolean | null; // null = no registrada
 }) {
   const [pending, startTransition] = useTransition();
-  const router = useRouter();
 
   function set(state: "attended" | "missed" | "clear") {
     const fd = new FormData();
     fd.set("session_id", sessionId);
     fd.set("client_id", clientId);
     fd.set("state", state);
+    // La action ya revalida la ruta actual (revalidateAgenda): su respuesta
+    // trae el árbol actualizado, sin router.refresh() extra.
     startTransition(async () => {
       await setAttendanceAction(fd);
-      router.refresh();
     });
   }
 

@@ -1,22 +1,17 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Chip, buttonVariants } from "@heroui/react";
-import { CalendarCog, ChevronLeft, ChevronRight } from "lucide-react";
 import { addDays, format, startOfWeek } from "date-fns";
 import { es } from "date-fns/locale";
 import { requireSession } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { openBlockSessionAction } from "@/actions/sessions";
 import {
   mergeDayEntries,
   monthOf,
-  participantSummary,
-  skyToneOf,
   type BlockRow,
   type DayEntry,
   type SessionRow,
 } from "@/lib/agenda";
-import { formatTime, todayISO } from "@/lib/format";
+import { todayISO } from "@/lib/format";
+import { AgendaWeek, type AgendaDayInfo } from "@/components/agenda-week";
 
 export const metadata: Metadata = { title: "Agenda" };
 
@@ -80,177 +75,37 @@ export default async function AgendaPage(props: {
     (blocksByMonth.get(monthOf(iso))?.length ?? 0) +
     (sessionsByDay.get(iso)?.filter((s) => !s.block_id).length ?? 0);
 
-  const entries = mergeDayEntries(
-    blocksByMonth.get(monthOf(selectedDay)) ?? [],
-    sessionsByDay.get(selectedDay) ?? [],
-  );
-
-  const qs = (over: Record<string, string>) => {
-    const p = new URLSearchParams();
-    p.set("semana", over.semana ?? fromISO);
-    p.set("dia", over.dia ?? selectedDay);
-    return `/agenda?${p.toString()}`;
-  };
+  // Toda la semana se resuelve aquí y el cambio de día es estado de cliente
+  // en <AgendaWeek> (sin round-trip por tap de día).
+  const dayInfos: AgendaDayInfo[] = [];
+  const entriesByDay: Record<string, DayEntry[]> = {};
+  for (const d of days) {
+    const iso = format(d, "yyyy-MM-dd");
+    dayInfos.push({
+      iso,
+      weekday: format(d, "EEE", { locale: es }),
+      dayNum: format(d, "d"),
+      count: dayCount(iso),
+    });
+    entriesByDay[iso] = mergeDayEntries(
+      blocksByMonth.get(monthOf(iso)) ?? [],
+      sessionsByDay.get(iso) ?? [],
+    );
+  }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">Agenda</h1>
-        {canPlan && (
-          <Link
-            href={`/agenda/mes?mes=${selectedDay.slice(0, 7)}`}
-            className={buttonVariants({
-              variant: "outline",
-              size: "sm",
-              className: "rounded-full font-semibold text-ink/70",
-            })}
-          >
-            <CalendarCog size={15} />
-            Plan del mes
-          </Link>
-        )}
-      </div>
-
-      {/* Navegación de semana */}
-      <div className="flex items-center justify-between">
-        <Link
-          href={qs({
-            semana: format(addDays(weekStart, -7), "yyyy-MM-dd"),
-            dia: format(addDays(weekStart, -7), "yyyy-MM-dd"),
-          })}
-          aria-label="Semana anterior"
-          className={buttonVariants({
-            variant: "outline",
-            size: "sm",
-            isIconOnly: true,
-            className: "rounded-full",
-          })}
-        >
-          <ChevronLeft size={18} />
-        </Link>
-        <p className="text-sm font-semibold capitalize text-ink/70">
-          {format(weekStart, "d MMM", { locale: es })} —{" "}
-          {format(days[6], "d MMM yyyy", { locale: es })}
-        </p>
-        <Link
-          href={qs({
-            semana: format(addDays(weekStart, 7), "yyyy-MM-dd"),
-            dia: format(addDays(weekStart, 7), "yyyy-MM-dd"),
-          })}
-          aria-label="Semana siguiente"
-          className={buttonVariants({
-            variant: "outline",
-            size: "sm",
-            isIconOnly: true,
-            className: "rounded-full",
-          })}
-        >
-          <ChevronRight size={18} />
-        </Link>
-      </div>
-
-      {/* Franja de días */}
-      <div className="grid grid-cols-7 gap-1.5">
-        {days.map((d) => {
-          const iso = format(d, "yyyy-MM-dd");
-          const active = iso === selectedDay;
-          const count = dayCount(iso);
-          return (
-            <Link
-              key={iso}
-              href={qs({ dia: iso })}
-              className={
-                active
-                  ? "flex flex-col items-center rounded-2xl bg-ink py-2.5 text-cream"
-                  : "flex flex-col items-center rounded-2xl border border-line bg-white py-2.5 text-ink/70"
-              }
-            >
-              <span className="text-[11px] font-medium capitalize">
-                {format(d, "EEE", { locale: es })}
-              </span>
-              <span className="text-lg font-bold">{format(d, "d")}</span>
-              <span
-                className={`mt-0.5 h-1.5 w-1.5 rounded-full ${count > 0 ? "bg-brand" : "bg-transparent"}`}
-              />
-            </Link>
-          );
-        })}
-      </div>
-
-      {/* Sesiones (bloques) del día */}
-      {entries.length === 0 ? (
-        <div className="rounded-(--radius-card) border border-dashed border-line bg-white p-8 text-center text-sm text-muted">
-          <p>Este mes aún no tiene sesiones definidas.</p>
-          {canPlan && (
-            <Link
-              href={`/agenda/mes?mes=${selectedDay.slice(0, 7)}`}
-              className="mt-1 inline-block font-semibold text-brand-600"
-            >
-              Definir el plan del mes
-            </Link>
-          )}
-        </div>
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {entries.map((e) => (
-            <li key={e.key}>
-              {e.sessionId ? (
-                <Link
-                  href={`/agenda/sesion/${e.sessionId}`}
-                  className={`flex w-full items-center gap-3 rounded-2xl border border-line bg-white p-3.5 text-left hover:border-brand/40 ${e.status === "cancelada" ? "opacity-50" : ""}`}
-                >
-                  <EntryContent entry={e} />
-                </Link>
-              ) : (
-                <form action={openBlockSessionAction}>
-                  <input type="hidden" name="block_id" value={e.blockId!} />
-                  <input type="hidden" name="date" value={selectedDay} />
-                  <button
-                    type="submit"
-                    className="flex w-full items-center gap-3 rounded-2xl border border-line bg-white p-3.5 text-left hover:border-brand/40"
-                  >
-                    <EntryContent entry={e} />
-                  </button>
-                </form>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function EntryContent({ entry: e }: { entry: DayEntry }) {
-  const n = e.participants.length;
-  return (
-    <>
-      <span
-        className={`h-11 w-1.5 shrink-0 rounded-full ${skyToneOf(e.startTime).bar}`}
-      />
-      <div className="min-w-0 flex-1">
-        <p className="font-bold">
-          {formatTime(e.startTime)} – {formatTime(e.endTime)}
-          {e.capacity != null && (
-            <span className="ml-1.5 text-sm font-medium text-muted">
-              · aforo {e.capacity}
-            </span>
-          )}
-        </p>
-        <p className="truncate text-sm text-muted">
-          {participantSummary(e.participants)}
-        </p>
-      </div>
-      {n > 0 && (
-        <Chip size="sm" color="accent" variant="soft" className="shrink-0 font-bold">
-          {e.tracked > 0 ? `${e.attended}/${n} ✓` : `${n} cliente${n === 1 ? "" : "s"}`}
-        </Chip>
-      )}
-      {e.status !== "programada" && (
-        <span className="shrink-0 text-xs font-semibold capitalize text-muted">
-          {e.status}
-        </span>
-      )}
-    </>
+    <AgendaWeek
+      // key: al cambiar de semana (navegación de servidor) se resetea el día
+      // seleccionado; tras un server action (misma semana) el estado persiste.
+      key={fromISO}
+      canPlan={canPlan}
+      fromISO={fromISO}
+      weekLabel={`${format(weekStart, "d MMM", { locale: es })} — ${format(days[6], "d MMM yyyy", { locale: es })}`}
+      prevWeekISO={format(addDays(weekStart, -7), "yyyy-MM-dd")}
+      nextWeekISO={format(addDays(weekStart, 7), "yyyy-MM-dd")}
+      days={dayInfos}
+      initialDay={selectedDay}
+      entriesByDay={entriesByDay}
+    />
   );
 }

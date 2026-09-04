@@ -1,6 +1,26 @@
+import { unstable_cache } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { PhotoUploader } from "@/components/photo-uploader";
 import { PhotosSection, type PhotoItem } from "@/components/photos-section";
+
+// URLs firmadas ESTABLES entre renders: si se re-firmara en cada visita, el
+// token cambiaría, la caché HTTP del navegador (por URL) fallaría siempre y la
+// galería entera se re-descargaría. Se firma con el cliente admin porque
+// dentro de unstable_cache no hay cookies del request; la autorización ya la
+// hizo la query RLS a progress_photos, de donde salen los paths (que forman
+// parte de la clave de caché: fotos nuevas → clave nueva → firma fresca).
+const getSignedPhotoUrls = unstable_cache(
+  async (paths: string[]) => {
+    const admin = createAdminClient();
+    const { data } = await admin.storage
+      .from("progress-photos")
+      .createSignedUrls(paths, 86400);
+    return (data ?? []).map((d) => d.signedUrl || null);
+  },
+  ["signed-photo-urls"],
+  { revalidate: 3600 },
+);
 
 export default async function FotosPage(props: {
   params: Promise<{ id: string }>;
@@ -19,15 +39,9 @@ export default async function FotosPage(props: {
   let photos: PhotoItem[] = [];
 
   if (rows.length > 0) {
-    // Bucket privado: URLs firmadas de corta vida (1 h).
-    const { data: signed } = await supabase.storage
-      .from("progress-photos")
-      .createSignedUrls(
-        rows.map((r) => r.storage_path),
-        3600,
-      );
+    const signed = await getSignedPhotoUrls(rows.map((r) => r.storage_path));
     photos = rows.flatMap((r, i) => {
-      const url = signed?.[i]?.signedUrl;
+      const url = signed[i];
       return url
         ? [{ id: r.id, url, pose: r.pose, taken_on: r.taken_on, client_id: id }]
         : [];

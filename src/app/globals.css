@@ -116,6 +116,17 @@ input::-webkit-date-and-time-value {
   }
 }
 
+/* Entrada de vista en cada navegación (template.tsx). Solo opacidad: un
+   transform crearía un containing block para los position:fixed (Fab). */
+@keyframes pageIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 /* Entrada de secciones (del diseño original) */
 @keyframes fadeUp {
   from {

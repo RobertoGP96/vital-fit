@@ -2,7 +2,6 @@
 
 import { Button, ToggleButton } from "@heroui/react";
 import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Camera } from "lucide-react";
 import imageCompression from "browser-image-compression";
 import { createClient } from "@/lib/supabase/client";
@@ -11,7 +10,6 @@ import { POSES } from "@/lib/poses";
 
 export function PhotoUploader({ clientId }: { clientId: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const router = useRouter();
   const [pose, setPose] = useState<string>("frente");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +35,8 @@ export function PhotoUploader({ clientId }: { clientId: string }) {
         .upload(path, compressed, { contentType: "image/webp" });
       if (upError) throw new Error(upError.message);
 
+      // La action revalida /clientes/[id]/fotos: su respuesta ya refresca la
+      // galería, sin router.refresh() (que duplicaba el render y la firma).
       const result = await savePhotoRecordAction({
         client_id: clientId,
         storage_path: path,
@@ -44,8 +44,6 @@ export function PhotoUploader({ clientId }: { clientId: string }) {
         taken_on: today,
       });
       if (result?.error) throw new Error(result.error);
-
-      router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo subir la foto.");
     } finally {
