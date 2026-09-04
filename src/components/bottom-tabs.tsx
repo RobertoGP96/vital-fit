@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   Home,
   Users,
@@ -22,6 +23,16 @@ const TABS = [
    despliega (max-width) y la cápsula hace navPop, igual que en Claude Design. */
 export function BottomTabs() {
   const pathname = usePathname();
+  // usePathname solo cambia cuando llega la página nueva del servidor; para
+  // que la píldora responda al tap, el destino se marca optimista en
+  // onNavigate y pathname lo confirma (o corrige) al completarse.
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPendingHref(null);
+  }, [pathname]);
+
+  const current = pendingHref ?? pathname;
 
   return (
     <nav
@@ -33,13 +44,14 @@ export function BottomTabs() {
       >
         {TABS.map(({ href, label, Icon }) => {
           const active =
-            pathname === href || pathname.startsWith(`${href}/`);
+            current === href || current.startsWith(`${href}/`);
           return (
             <li key={href}>
               <Link
                 href={href}
+                onNavigate={() => setPendingHref(href)}
                 aria-current={active ? "page" : undefined}
-                className={`flex items-center gap-[7px] rounded-full px-[15px] py-[11px] [transition:all_.35s_cubic-bezier(.2,.8,.2,1)] ${
+                className={`flex items-center gap-[7px] rounded-full px-[15px] py-[11px] [transition:color_.15s_ease,box-shadow_.35s_cubic-bezier(.2,.8,.2,1)] ${
                   active
                     ? "bg-[linear-gradient(135deg,#86EFAC,#17C964)] text-deep shadow-[0_4px_14px_rgba(23,201,100,0.45)] [animation:navPop_.4s_cubic-bezier(.2,.8,.2,1)]"
                     : "text-white/55"
