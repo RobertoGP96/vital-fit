@@ -33,6 +33,9 @@ export default async function FotosPage(props: {
     .select("id, storage_path, pose, taken_on")
     .eq("client_id", id)
     .order("taken_on", { ascending: false })
+    // Con fotos antiguas cargadas a posteriori puede haber varias filas con la
+    // misma taken_on: el desempate fija un orden estable entre renders.
+    .order("created_at", { ascending: false })
     .limit(120);
 
   const rows = data ?? [];

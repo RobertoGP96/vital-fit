@@ -1,16 +1,18 @@
 "use client";
 
-import { Button, ToggleButton } from "@heroui/react";
+import { Button, Input, Label, TextField, ToggleButton } from "@heroui/react";
 import { useRef, useState } from "react";
 import { Camera } from "lucide-react";
 import imageCompression from "browser-image-compression";
 import { createClient } from "@/lib/supabase/client";
 import { savePhotoRecordAction } from "@/actions/photos";
+import { todayISO } from "@/lib/format";
 import { POSES } from "@/lib/poses";
 
 export function PhotoUploader({ clientId }: { clientId: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [pose, setPose] = useState<string>("frente");
+  const [takenOn, setTakenOn] = useState(todayISO());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,6 +20,10 @@ export function PhotoUploader({ clientId }: { clientId: string }) {
     setBusy(true);
     setError(null);
     try {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(takenOn)) {
+        throw new Error("Elige la fecha en que se tomó la foto.");
+      }
+
       // Comprimir en el teléfono antes de subir (clave con conexión lenta).
       const compressed = await imageCompression(file, {
         maxSizeMB: 0.4,
@@ -26,8 +32,7 @@ export function PhotoUploader({ clientId }: { clientId: string }) {
         fileType: "image/webp",
       });
 
-      const today = new Date().toISOString().slice(0, 10);
-      const path = `${clientId}/${today}_${crypto.randomUUID()}.webp`;
+      const path = `${clientId}/${takenOn}_${crypto.randomUUID()}.webp`;
 
       const supabase = createClient();
       const { error: upError } = await supabase.storage
@@ -41,7 +46,7 @@ export function PhotoUploader({ clientId }: { clientId: string }) {
         client_id: clientId,
         storage_path: path,
         pose,
-        taken_on: today,
+        taken_on: takenOn,
       });
       if (result?.error) throw new Error(result.error);
     } catch (e) {
@@ -73,6 +78,20 @@ export function PhotoUploader({ clientId }: { clientId: string }) {
           </ToggleButton>
         ))}
       </div>
+
+      {/* Editable para cargar fotos antiguas de clientes con historial previo:
+          la galería agrupa y compara por esta fecha, no por la de subida. */}
+      <TextField
+        name="taken_on"
+        type="date"
+        isRequired
+        fullWidth
+        value={takenOn}
+        onChange={setTakenOn}
+      >
+        <Label>Fecha en que se tomó</Label>
+        <Input max={todayISO()} />
+      </TextField>
 
       <input
         ref={inputRef}

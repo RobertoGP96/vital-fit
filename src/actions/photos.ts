@@ -4,13 +4,18 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireSession } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { todayISO } from "@/lib/format";
 import type { FormState } from "@/actions/auth";
 
 const schema = z.object({
   client_id: z.string().uuid(),
   storage_path: z.string().min(3).max(300),
   pose: z.enum(["frente", "espalda", "perfil_izquierdo", "perfil_derecho", "otro"]),
-  taken_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  // El servidor (UTC) nunca va detrás de Cuba: el "hoy" del cliente siempre pasa.
+  taken_on: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .refine((d) => d <= todayISO()),
 });
 
 /** El binario ya subió directo del navegador al bucket; aquí solo el metadato. */
