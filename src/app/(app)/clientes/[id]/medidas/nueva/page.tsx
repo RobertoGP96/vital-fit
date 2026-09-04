@@ -13,11 +13,7 @@ export default async function NuevaMedicionPage(props: {
   const supabase = await createClient();
 
   const [{ data: client }, { data: types }] = await Promise.all([
-    supabase
-      .from("clients")
-      .select("preferred_units, sex")
-      .eq("id", id)
-      .maybeSingle(),
+    supabase.from("clients").select("sex").eq("id", id).maybeSingle(),
     supabase
       .from("measurement_types")
       .select("id, code, name_es, canonical_unit, only_for_sex")
@@ -36,12 +32,7 @@ export default async function NuevaMedicionPage(props: {
   return (
     <div className="flex flex-col gap-4">
       <h2 className="font-bold">Nueva medición</h2>
-      <MeasurementForm
-        clientId={id}
-        types={visibleTypes}
-        defaultUnits={(client.preferred_units ?? "metric") as "metric" | "imperial"}
-        today={todayISO()}
-      />
+      <MeasurementForm clientId={id} types={visibleTypes} today={todayISO()} />
     </div>
   );
 }

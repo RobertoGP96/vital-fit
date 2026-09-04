@@ -7,6 +7,7 @@ import {
   MeasurementTypeForm,
   type MeasurementTypeRow,
 } from "@/components/catalog-admin";
+import { displayUnit } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Tipos de medida" };
 
@@ -57,7 +58,7 @@ export default async function TiposMedidaPage() {
                       </p>
                     </div>
                     <Chip color="accent" variant="soft" size="sm">
-                      {t.canonical_unit}
+                      {displayUnit(t.canonical_unit)}
                     </Chip>
                     {t.only_for_sex && (
                       <Chip color="default" variant="soft" size="sm">

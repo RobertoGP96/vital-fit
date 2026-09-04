@@ -11,7 +11,6 @@ import type { FormState } from "@/actions/auth";
 const schema = z.object({
   client_id: z.string().uuid(),
   measured_at: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  input_units: z.enum(["metric", "imperial"]),
   notes: z.string().trim().max(500).optional(),
 });
 
@@ -24,7 +23,6 @@ export async function createMeasurementAction(
   const parsed = schema.safeParse({
     client_id: formData.get("client_id"),
     measured_at: formData.get("measured_at"),
-    input_units: formData.get("input_units"),
     notes: String(formData.get("notes") ?? ""),
   });
   if (!parsed.success) return { error: "Datos inválidos." };
@@ -43,7 +41,8 @@ export async function createMeasurementAction(
     const canonicalUnit = String(formData.get(`unit_${typeId}`) ?? "cm");
     values.push({
       measurement_type_id: typeId,
-      value: toCanonicalUnit(num, canonicalUnit, parsed.data.input_units),
+      // Entrada fija de la app: pulgadas para longitudes, kg para peso.
+      value: toCanonicalUnit(num, canonicalUnit),
     });
   }
   if (values.length === 0) {
@@ -56,7 +55,6 @@ export async function createMeasurementAction(
     .insert({
       client_id: parsed.data.client_id,
       measured_at: parsed.data.measured_at,
-      input_units: parsed.data.input_units,
       notes: parsed.data.notes || null,
     })
     .select("id")

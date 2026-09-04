@@ -50,7 +50,6 @@ export const clientSchema = z.object({
     )
     .nullable()
     .optional(),
-  preferred_units: z.enum(["metric", "imperial"]).default("metric"),
   max_daily_sessions: z
     .string()
     .trim()

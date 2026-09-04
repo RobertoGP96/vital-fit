@@ -25,19 +25,15 @@ export default async function MedidasPage(props: {
   const { id } = await props.params;
   const supabase = await createClient();
 
-  const [{ data: client }, { data: recordsData }] = await Promise.all([
-    supabase.from("clients").select("preferred_units").eq("id", id).maybeSingle(),
-    supabase
-      .from("measurement_records")
-      .select(
-        "id, measured_at, notes, measurement_values(value, measurement_types(name_es, canonical_unit, sort_order))",
-      )
-      .eq("client_id", id)
-      .order("measured_at", { ascending: false })
-      .limit(30),
-  ]);
+  const { data: recordsData } = await supabase
+    .from("measurement_records")
+    .select(
+      "id, measured_at, notes, measurement_values(value, measurement_types(name_es, canonical_unit, sort_order))",
+    )
+    .eq("client_id", id)
+    .order("measured_at", { ascending: false })
+    .limit(30);
 
-  const units = (client?.preferred_units ?? "metric") as "metric" | "imperial";
   const records = (recordsData ?? []) as unknown as Rec[];
 
   return (
@@ -96,7 +92,6 @@ export default async function MedidasPage(props: {
                     const d = toDisplayUnit(
                       v.value,
                       v.measurement_types?.canonical_unit ?? "cm",
-                      units,
                     );
                     return (
                       <div key={i}>

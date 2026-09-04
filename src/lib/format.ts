@@ -34,32 +34,27 @@ export function formatTime(time: string): string {
   return time.slice(0, 5);
 }
 
+// Sistema de unidades fijo de la app: longitudes en pulgadas, peso en kg.
+// El almacenamiento sigue siendo canónico (cm/kg/%).
 const CM_PER_INCH = 2.54;
-const KG_PER_LB = 0.453592;
 
-/** Convierte un valor canónico (cm/kg) a la unidad de visualización. */
+/** Unidad visible para una unidad canónica ('cm' se muestra en pulgadas). */
+export function displayUnit(canonicalUnit: string): string {
+  return canonicalUnit === "cm" ? "in" : canonicalUnit;
+}
+
+/** Convierte un valor canónico (cm/kg/%) a la unidad de visualización (in/kg/%). */
 export function toDisplayUnit(
   value: number,
   canonicalUnit: string,
-  units: "metric" | "imperial",
 ): { value: number; unit: string } {
-  if (units === "imperial" && canonicalUnit === "cm") {
-    return { value: round1(value / CM_PER_INCH), unit: "in" };
-  }
-  if (units === "imperial" && canonicalUnit === "kg") {
-    return { value: round1(value / KG_PER_LB), unit: "lb" };
-  }
-  return { value: round1(value), unit: canonicalUnit };
+  const converted = canonicalUnit === "cm" ? value / CM_PER_INCH : value;
+  return { value: round1(converted), unit: displayUnit(canonicalUnit) };
 }
 
-/** Convierte un valor introducido en la unidad elegida al canónico (cm/kg). */
-export function toCanonicalUnit(
-  value: number,
-  canonicalUnit: string,
-  units: "metric" | "imperial",
-): number {
-  if (units === "imperial" && canonicalUnit === "cm") return round2(value * CM_PER_INCH);
-  if (units === "imperial" && canonicalUnit === "kg") return round2(value * KG_PER_LB);
+/** Convierte un valor introducido (in/kg/%) al canónico (cm/kg/%). */
+export function toCanonicalUnit(value: number, canonicalUnit: string): number {
+  if (canonicalUnit === "cm") return round2(value * CM_PER_INCH);
   return round2(value);
 }
 

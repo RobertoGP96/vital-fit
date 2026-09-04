@@ -7,10 +7,10 @@ import {
   NumberField,
   TextArea,
   TextField,
-  ToggleButton,
 } from "@heroui/react";
-import { useActionState, useState } from "react";
+import { useActionState } from "react";
 import { createMeasurementAction } from "@/actions/measurements";
+import { displayUnit } from "@/lib/format";
 
 type MType = {
   id: string;
@@ -19,32 +19,24 @@ type MType = {
   canonical_unit: string;
 };
 
-const IMPERIAL_LABEL: Record<string, string> = { cm: "in", kg: "lb", "%": "%" };
-
 export function MeasurementForm({
   clientId,
   types,
-  defaultUnits,
   today,
 }: {
   clientId: string;
   types: MType[];
-  defaultUnits: "metric" | "imperial";
   today: string;
 }) {
   const [state, formAction, pending] = useActionState(createMeasurementAction, null);
-  const [units, setUnits] = useState<"metric" | "imperial">(defaultUnits);
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
       <input type="hidden" name="client_id" value={clientId} />
-      <input type="hidden" name="input_units" value={units} />
 
-      {/* flex-wrap: en pantallas estrechas (≤360px) fecha + unidades no caben
-          en una fila; sin wrap el input de fecha desbordaba el formulario. */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {/* Sin flex-1: el input de fecha estira su wrapper, así que crecía
-            hasta ocupar todo el hueco sobrante de la fila. */}
+      {/* Sin flex-1: el input de fecha estira su wrapper, así que crecía
+          hasta ocupar todo el hueco sobrante de la fila. */}
+      <div className="flex items-center gap-3">
         <TextField
           name="measured_at"
           type="date"
@@ -54,28 +46,6 @@ export function MeasurementForm({
           <Label>Fecha</Label>
           <Input />
         </TextField>
-
-        <fieldset className="flex flex-col gap-1.5">
-          <legend className="text-sm font-medium">Unidades</legend>
-          <div className="flex overflow-hidden rounded-xl border border-line">
-            {(["metric", "imperial"] as const).map((u) => (
-              <ToggleButton
-                key={u}
-                isSelected={units === u}
-                onChange={(selected) => {
-                  if (selected) setUnits(u);
-                }}
-                className={
-                  units === u
-                    ? "rounded-none border-0 bg-ink px-4 py-3 text-sm font-bold text-cream"
-                    : "rounded-none border-0 bg-white px-4 py-3 text-sm font-normal text-muted"
-                }
-              >
-                {u === "metric" ? "cm/kg" : "in/lb"}
-              </ToggleButton>
-            ))}
-          </div>
-        </fieldset>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -90,7 +60,7 @@ export function MeasurementForm({
               <Label>
                 {t.name_es}{" "}
                 <span className="text-muted">
-                  ({units === "imperial" ? IMPERIAL_LABEL[t.canonical_unit] : t.canonical_unit})
+                  ({displayUnit(t.canonical_unit)})
                 </span>
               </Label>
               <NumberField.Group>

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { TrendingDown, TrendingUp, Minus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { EvolutionChart, type SeriesPoint } from "@/components/evolution-chart";
-import { formatShortDate, todayISO } from "@/lib/format";
+import { formatShortDate, toDisplayUnit, todayISO } from "@/lib/format";
 
 type Summary = {
   type_code: string;
@@ -72,7 +72,10 @@ export default async function InformePage(props: {
   const byType = new Map<string, SeriesPoint[]>();
   for (const r of series) {
     const list = byType.get(r.type_code) ?? [];
-    list.push({ date: r.measured_at, value: Number(r.value) });
+    list.push({
+      date: r.measured_at,
+      value: toDisplayUnit(Number(r.value), r.canonical_unit).value,
+    });
     byType.set(r.type_code, list);
   }
 
@@ -139,7 +142,12 @@ export default async function InformePage(props: {
       ) : (
         summary.map((s) => {
           const data = byType.get(s.type_code) ?? [];
-          const delta = Number(s.delta);
+          const first = toDisplayUnit(Number(s.first_value), s.canonical_unit);
+          const last = toDisplayUnit(Number(s.last_value), s.canonical_unit);
+          const { value: delta, unit } = toDisplayUnit(
+            Number(s.delta),
+            s.canonical_unit,
+          );
           const improving = delta < 0; // en medidas corporales, bajar suele ser progreso
           return (
             <section
@@ -165,16 +173,15 @@ export default async function InformePage(props: {
                     <TrendingUp size={12} />
                   )}
                   {delta > 0 ? "+" : ""}
-                  {delta} {s.canonical_unit}
+                  {delta} {unit}
                 </span>
               </div>
               <p className="mb-2 text-xs text-muted">
-                {s.first_value} {s.canonical_unit} (
-                {formatShortDate(s.first_date)}) → {s.last_value}{" "}
-                {s.canonical_unit} ({formatShortDate(s.last_date)})
+                {first.value} {unit} ({formatShortDate(s.first_date)}) →{" "}
+                {last.value} {unit} ({formatShortDate(s.last_date)})
               </p>
               {data.length > 1 ? (
-                <EvolutionChart data={data} unit={s.canonical_unit} />
+                <EvolutionChart data={data} unit={unit} />
               ) : (
                 <p className="text-xs text-muted">
                   Se necesitan al menos 2 mediciones para graficar.

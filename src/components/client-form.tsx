@@ -22,7 +22,6 @@ type Defaults = Partial<{
   sex: string | null;
   marital_status: string | null;
   height_cm: number | null;
-  preferred_units: string;
   max_daily_sessions: number;
   emergency_contact_name: string | null;
   emergency_contact_phone: string | null;
@@ -176,29 +175,6 @@ export function ClientForm({
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <Select
-          name="preferred_units"
-          fullWidth
-          defaultSelectedKey={defaults.preferred_units ?? "metric"}
-        >
-          <Label>Unidades para medidas</Label>
-          <Select.Trigger>
-            <Select.Value />
-            <Select.Indicator />
-          </Select.Trigger>
-          <Select.Popover>
-            <ListBox>
-              <ListBox.Item id="metric" textValue="Centímetros / kilogramos">
-                Centímetros / kilogramos
-                <ListBox.ItemIndicator />
-              </ListBox.Item>
-              <ListBox.Item id="imperial" textValue="Pulgadas / libras">
-                Pulgadas / libras
-                <ListBox.ItemIndicator />
-              </ListBox.Item>
-            </ListBox>
-          </Select.Popover>
-        </Select>
         <NumberField
           name="max_daily_sessions"
           fullWidth

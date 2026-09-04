@@ -19,6 +19,7 @@ import {
   updatePlanAction,
   updateSessionTypeAction,
 } from "@/actions/catalogs";
+import { displayUnit } from "@/lib/format";
 
 type CatalogState = { error?: string } | null;
 type CatalogAction = (
@@ -233,6 +234,8 @@ export function MeasurementTypeForm({ type }: { type?: MeasurementTypeRow }) {
         <FieldError />
       </TextField>
 
+      {/* Los ids del selector son la unidad canónica de almacenamiento; las
+          longitudes se registran y muestran en pulgadas (sistema fijo). */}
       <div className="grid grid-cols-2 gap-3">
         {isNew ? (
           <Select name="canonical_unit" fullWidth defaultSelectedKey="cm">
@@ -243,8 +246,8 @@ export function MeasurementTypeForm({ type }: { type?: MeasurementTypeRow }) {
             </Select.Trigger>
             <Select.Popover>
               <ListBox>
-                <ListBox.Item id="cm" textValue="cm (longitud)">
-                  cm (longitud)
+                <ListBox.Item id="cm" textValue="in (longitud)">
+                  in (longitud)
                   <ListBox.ItemIndicator />
                 </ListBox.Item>
                 <ListBox.Item id="kg" textValue="kg (peso)">
@@ -262,7 +265,7 @@ export function MeasurementTypeForm({ type }: { type?: MeasurementTypeRow }) {
           <div className="flex flex-col gap-1.5">
             <span className="text-sm font-medium">Unidad</span>
             <p className="flex h-11 items-center rounded-xl border border-line bg-cream px-3 text-muted">
-              {type.canonical_unit}
+              {displayUnit(type.canonical_unit)}
             </p>
           </div>
         )}
